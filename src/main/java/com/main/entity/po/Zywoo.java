@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Zywoo implements Serializable {
+public class Zywoo implements PlayerMatchData {
 
 
 	/**

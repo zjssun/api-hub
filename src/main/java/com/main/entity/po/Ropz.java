@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Ropz implements Serializable {
+public class Ropz implements PlayerMatchData {
 
 
 	/**

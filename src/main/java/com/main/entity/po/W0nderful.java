@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class W0nderful implements Serializable {
+public class W0nderful implements PlayerMatchData {
 
 
 	/**

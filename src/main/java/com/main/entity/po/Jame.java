@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Jame implements Serializable {
+public class Jame implements PlayerMatchData {
 
 
 	/**

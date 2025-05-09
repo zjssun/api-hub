@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Twistzz implements Serializable {
+public class Twistzz implements PlayerMatchData {
 
 
 	/**

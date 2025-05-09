@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Donk implements Serializable {
+public class Donk implements PlayerMatchData {
 
 
 	/**
@@ -104,7 +104,6 @@ public class Donk implements Serializable {
 	 * 
 	 */
 	private String adr;
-
 
 	public void setTime(String time){
 		this.time = time;

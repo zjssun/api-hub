@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Niko implements Serializable {
+public class Niko implements PlayerMatchData {
 
 
 	/**
