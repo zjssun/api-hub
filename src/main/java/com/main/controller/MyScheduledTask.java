@@ -4,9 +4,11 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
+import com.main.constant.Constants;
 import com.main.entity.enums.DateTimePatternEnum;
 import com.main.entity.enums.PlayerEnum;
 import com.main.entity.po.*;
+import com.main.entity.query.*;
 import com.main.service.*;
 import com.main.service.impl.DonkServiceImpl;
 import com.main.utils.MatchTools;
@@ -14,6 +16,7 @@ import io.netty.channel.ChannelOption;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -30,6 +33,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@ConditionalOnProperty(name = "scheduler.enabled", havingValue = "true", matchIfMissing = true)
 public class MyScheduledTask {
     @Resource
     DonkService donkService;
@@ -76,20 +80,21 @@ public class MyScheduledTask {
 
 
     private static final Logger logger = LoggerFactory.getLogger(MyScheduledTask.class);
-    private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("MMM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
     //创建 WebClient 对象
     private final WebClient client = WebClient.create();
     private final WebClient RoomClient = WebClient.create();
     private final WebClient DetailClient = WebClient.create();
 
-    @Scheduled(fixedRate = 100 * 1000)
+    @Scheduled(fixedRate = 60 * 1000)
     public void executeTask(){
         logger.info("定时任务执行中...");
+
         //创建一个 PlayerMatchData对象的流
         Flux<PlayerMatchData> resultFlux = Flux.fromArray(PlayerEnum.values())
                 .flatMap(playerEnum -> {
                     logger.info("准备获取{}的比赛数据", playerEnum.getName());
-                    String url = "https://www.faceit.com/api/stats/v1/stats/time/users/"+playerEnum.getUuid()+"/games/cs2?page=0&size=1&game_mode=5v5";
+                    String url = "https://www.faceit.com/api/stats/v1/stats/time/users/"+playerEnum.getUuid()+"/games/cs2?page=0&size=2&game_mode=5v5";
                     logger.info("请求地址: {}", url);
                     // 发送 GET 请求并处理响应
                     return client.get().uri(url).retrieve().bodyToMono(String.class).retryWhen(Retry.backoff(3,Duration.ofSeconds(2)))
@@ -240,6 +245,7 @@ public class MyScheduledTask {
             }
         }
         logger.info("--- 所有玩家历史数据解析和转换完毕 ---");
+        delExpireData();
     }
 
     //保存JSON数据到对应的类
@@ -334,13 +340,19 @@ public class MyScheduledTask {
                         String effectiveRanking = roomData.getJSONObject("payload")
                                 .getJSONObject("entityCustom")
                                 .getString("effectiveRanking");
-                        if (effectiveRanking.contains(".")) {
-                            effectiveRanking = effectiveRanking.substring(0, effectiveRanking.indexOf("."));
+                        if(effectiveRanking == null){
+                            return "unknow";
+                        }else {
+                            if (effectiveRanking.contains(".")) {
+                                return effectiveRanking.substring(0, effectiveRanking.indexOf("."));
+                            }else
+                                return effectiveRanking;
                         }
-                        return effectiveRanking;
+
+
                     }catch (Exception e) {
                         logger.warn("解析 effectiveRanking 失败 for {}: {}", matchRoomUrl, e.getMessage());
-                        return "unknow";
+                        return "unknown";
                     }
                 }).doOnError(WebClientResponseException.class, e -> {
                     logger.warn("访问API {} 失败: Code:{} ERROR:{}", matchRoomUrl, e.getStatusCode(), e.getResponseBodyAsString());
@@ -366,6 +378,10 @@ public class MyScheduledTask {
                             String currentTeamId = team.getString("teamId");
                             if(Objects.equals(targetTeamId,currentTeamId)){
                                 JSONArray players = team.getJSONArray("players");
+                                if (players == null) {
+                                    logger.warn("在 {} 的响应中未找到 'players' 数组", matchDetailUrl);
+                                    throw new RuntimeException("Players data not found in match detail");
+                                }
                                 for(int j=0;j<players.size();j++){
                                     JSONObject player = players.getJSONObject(j);
                                     if(Objects.equals(targetPlayerId,player.getString("playerId"))){
@@ -386,5 +402,169 @@ public class MyScheduledTask {
                 }).doOnError(WebClientResponseException.class, e -> {
                     logger.warn("访问API {} 失败: Code:{} ERROR:{}", matchDetailUrl, e.getStatusCode(), e.getResponseBodyAsString());
                 });
+    }
+
+    //删除过期数据
+    private void delExpireData(){
+        logger.info("正在检查过期数据...");
+        //获取当前系统时间戳
+        long timestampMillis = System.currentTimeMillis();
+        //donk
+        DonkQuery donkQuery = new DonkQuery();
+        donkQuery.setOrderBy("timestamp desc");
+        List<Donk> donkList =  donkService.findListByParam(donkQuery);
+        donkList.forEach(donk -> {
+            logger.info("donk的时间戳为：{}", donk.getTimestamp());
+            long donkTimestamp = Long.parseLong(donk.getTimestamp());
+            if(timestampMillis-donkTimestamp > Constants.TWO_MONTH_TIME){
+                donkService.deleteDonkByTime(donk.getTime());
+            }
+        });
+
+        // M0nesy
+        M0nesyQuery m0nesyQuery = new M0nesyQuery();
+        m0nesyQuery.setOrderBy("timestamp desc");
+        List<M0nesy> m0nesyList = m0nesyService.findListByParam(m0nesyQuery);
+        m0nesyList.forEach(m0nesy -> {
+            logger.info("m0nesy的时间戳为：{}", m0nesy.getTimestamp());
+            long ts = Long.parseLong(m0nesy.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                m0nesyService.deleteM0nesyByTime(m0nesy.getTime());
+            }
+        });
+
+        // S1mple
+        S1mpleQuery s1mpleQuery = new S1mpleQuery();
+        s1mpleQuery.setOrderBy("timestamp desc");
+        List<S1mple> s1mpleList = s1mpleService.findListByParam(s1mpleQuery);
+        s1mpleList.forEach(s1mple -> {
+            logger.info("s1mple的时间戳为：{}", s1mple.getTimestamp());
+            long ts = Long.parseLong(s1mple.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                s1mpleService.deleteS1mpleByTime(s1mple.getTime());
+            }
+        });
+
+        // Niko
+        NikoQuery nikoQuery = new NikoQuery();
+        nikoQuery.setOrderBy("timestamp desc");
+        List<Niko> nikoList = nikoService.findListByParam(nikoQuery);
+        nikoList.forEach(niko -> {
+            logger.info("niko的时间戳为：{}", niko.getTimestamp());
+            long ts = Long.parseLong(niko.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                nikoService.deleteNikoByTime(niko.getTime());
+            }
+        });
+
+        // Jks
+        JksQuery jksQuery = new JksQuery();
+        jksQuery.setOrderBy("timestamp desc");
+        List<Jks> jksList = jksService.findListByParam(jksQuery);
+        jksList.forEach(jks -> {
+            logger.info("jks的时间戳为：{}", jks.getTimestamp());
+            long ts = Long.parseLong(jks.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                jksService.deleteJksByTime(jks.getTime());
+            }
+        });
+
+        // Twistzz
+        TwistzzQuery twistzzQuery = new TwistzzQuery();
+        twistzzQuery.setOrderBy("timestamp desc");
+        List<Twistzz> twistzzList = twistzzService.findListByParam(twistzzQuery);
+        twistzzList.forEach(twistzz -> {
+            logger.info("twistzz的时间戳为：{}", twistzz.getTimestamp());
+            long ts = Long.parseLong(twistzz.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                twistzzService.deleteTwistzzByTime(twistzz.getTime());
+            }
+        });
+
+        // Elige
+        EligeQuery eligeQuery = new EligeQuery();
+        eligeQuery.setOrderBy("timestamp desc");
+        List<Elige> eligeList = eligeService.findListByParam(eligeQuery);
+        eligeList.forEach(elige -> {
+            logger.info("elige的时间戳为：{}", elige.getTimestamp());
+            long ts = Long.parseLong(elige.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                eligeService.deleteEligeByTime(elige.getTime());
+            }
+        });
+
+        // Jame
+        JameQuery jameQuery = new JameQuery();
+        jameQuery.setOrderBy("timestamp desc");
+        List<Jame> jameList = jameService.findListByParam(jameQuery);
+        jameList.forEach(jame -> {
+            logger.info("jame的时间戳为：{}", jame.getTimestamp());
+            long ts = Long.parseLong(jame.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                jameService.deleteJameByTime(jame.getTime());
+            }
+        });
+
+        // Ropz
+        RopzQuery ropzQuery = new RopzQuery();
+        ropzQuery.setOrderBy("timestamp desc");
+        List<Ropz> ropzList = ropzService.findListByParam(ropzQuery);
+        ropzList.forEach(ropz -> {
+            logger.info("ropz的时间戳为：{}", ropz.getTimestamp());
+            long ts = Long.parseLong(ropz.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                ropzService.deleteRopzByTime(ropz.getTime());
+            }
+        });
+
+        // Jl
+        JlQuery jlQuery = new JlQuery();
+        jlQuery.setOrderBy("timestamp desc");
+        List<Jl> jlList = jlService.findListByParam(jlQuery);
+        jlList.forEach(jl -> {
+            logger.info("jl的时间戳为：{}", jl.getTimestamp());
+            long ts = Long.parseLong(jl.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                jlService.deleteJlByTime(jl.getTime());
+            }
+        });
+
+        // Zywoo
+        ZywooQuery zywooQuery = new ZywooQuery();
+        zywooQuery.setOrderBy("timestamp desc");
+        List<Zywoo> zywooList = zywooService.findListByParam(zywooQuery);
+        zywooList.forEach(zywoo -> {
+            logger.info("zywoo的时间戳为：{}", zywoo.getTimestamp());
+            long ts = Long.parseLong(zywoo.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                zywooService.deleteZywooByTime(zywoo.getTime());
+            }
+        });
+
+        // W0nderful
+        W0nderfulQuery w0Query = new W0nderfulQuery();
+        w0Query.setOrderBy("timestamp desc");
+        List<W0nderful> w0List = w0nderfulService.findListByParam(w0Query);
+        w0List.forEach(w0 -> {
+            logger.info("w0nderful的时间戳为：{}", w0.getTimestamp());
+            long ts = Long.parseLong(w0.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                w0nderfulService.deleteW0nderfulByTime(w0.getTime());
+            }
+        });
+
+        // Im
+        ImQuery imQuery = new ImQuery();
+        imQuery.setOrderBy("timestamp desc");
+        List<Im> imList = imService.findListByParam(imQuery);
+        imList.forEach(im -> {
+            logger.info("im的时间戳为：{}", im.getTimestamp());
+            long ts = Long.parseLong(im.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
+                imService.deleteImByTime(im.getTime());
+            }
+        });
+
+        logger.info("检查完毕!");
     }
 }
