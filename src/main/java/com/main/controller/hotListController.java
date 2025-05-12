@@ -1,8 +1,10 @@
 package com.main.controller;
 
 import com.main.component.RedisComponet;
+import com.main.entity.po.Juejin;
 import com.main.entity.po.ThePaper;
 import com.main.entity.vo.ResponseVO;
+import com.main.service.impl.JuejinService;
 import com.main.service.impl.ThePaperService;
 import com.main.task.MyScheduledTask;
 import jakarta.annotation.Resource;
@@ -20,11 +22,13 @@ public class hotListController extends ABaseController{
     private ThePaperService thePaperService;
     @Resource
     private RedisComponet redisComponet;
+    @Resource
+    private JuejinService juejinService;
 
     private static final Logger logger = LoggerFactory.getLogger(hotListController.class);
 
 
-    @RequestMapping("/Paperhot")
+    @RequestMapping("/paper")
     public ResponseVO Paperhot() {
         List<ThePaper> thePaperList;
         thePaperList = redisComponet.getPaperList();
@@ -36,6 +40,20 @@ public class hotListController extends ABaseController{
             logger.info("保存澎湃热点数据到Redis!");
         }
         return getSuccessResponseVO(thePaperList);
+    }
+
+    @RequestMapping("/juejin")
+    public ResponseVO Juejinhot(){
+        List<Juejin> juejinList;
+        juejinList = redisComponet.getJuejinList();
+        if(juejinList != null && !juejinList.isEmpty()){
+            logger.info("从Redis获取掘金数据成功!");
+        }else {
+            juejinList = juejinService.getJuejinData();
+            redisComponet.setJuejinList(juejinList);
+            logger.info("保存掘金数据到Redis!");
+        }
+        return getSuccessResponseVO(juejinList);
     }
 
 

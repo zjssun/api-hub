@@ -1,11 +1,14 @@
 package com.main.entity.vo;
 
 
+import java.util.Date;
+
 public class ResponseVO<T> {
     private String status;
     private Integer code;
     private String info;
     private T data;
+    private String time;
 
     public String getStatus() {
         return status;
@@ -37,5 +40,13 @@ public class ResponseVO<T> {
 
     public void setInfo(String info) {
         this.info = info;
+    }
+
+    public String getTime() {
+        return time;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
     }
 }

@@ -3,6 +3,9 @@ import com.main.entity.enums.ResponseCodeEnum;
 import com.main.entity.vo.ResponseVO;
 import com.main.exception.BusinessException;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 
 public class ABaseController {
 
@@ -16,6 +19,7 @@ public class ABaseController {
         responseVO.setCode(ResponseCodeEnum.CODE_200.getCode());
         responseVO.setInfo(ResponseCodeEnum.CODE_200.getMsg());
         responseVO.setData(t);
+        responseVO.setTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-M-d HH:mm:ss")));
         return responseVO;
     }
 
