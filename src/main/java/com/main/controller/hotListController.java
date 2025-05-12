@@ -1,9 +1,11 @@
 package com.main.controller;
 
 import com.main.component.RedisComponet;
+import com.main.entity.po.Douban;
 import com.main.entity.po.Juejin;
 import com.main.entity.po.ThePaper;
 import com.main.entity.vo.ResponseVO;
+import com.main.service.impl.DoubanService;
 import com.main.service.impl.JuejinService;
 import com.main.service.impl.ThePaperService;
 import com.main.task.MyScheduledTask;
@@ -24,6 +26,8 @@ public class hotListController extends ABaseController{
     private RedisComponet redisComponet;
     @Resource
     private JuejinService juejinService;
+    @Resource
+    private DoubanService doubanService;
 
     private static final Logger logger = LoggerFactory.getLogger(hotListController.class);
 
@@ -54,6 +58,20 @@ public class hotListController extends ABaseController{
             logger.info("保存掘金数据到Redis!");
         }
         return getSuccessResponseVO(juejinList);
+    }
+
+    @RequestMapping("/doubanEA")
+    public ResponseVO DoubanEA(){
+        List<Douban> doubanList;
+        doubanList = redisComponet.getDoubanList();
+        if(doubanList != null && !doubanList.isEmpty()){
+            logger.info("从Redis获取豆瓣数据成功!");
+
+        }else{
+            doubanList = doubanService.fecthDoubanData();
+            redisComponet.setDoubanList(doubanList);
+        }
+        return getSuccessResponseVO(doubanList);
     }
 
 
