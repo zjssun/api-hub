@@ -5,7 +5,7 @@ import org.apache.ibatis.annotations.Param;
 /**
  *  数据库操作接口
  */
-public interface JksMapper<T,P> extends BaseMapper<T,P> {
+public interface KyousukeMapper<T,P> extends BaseMapper<T,P> {
 
 	/**
 	 * 根据Time更新

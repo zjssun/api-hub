@@ -5,7 +5,7 @@ package com.main.entity.query;
 /**
  * 参数
  */
-public class JksQuery extends BaseParam {
+public class KyousukeQuery extends BaseParam {
 
 
 	/**

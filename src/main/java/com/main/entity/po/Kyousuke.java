@@ -7,7 +7,7 @@ import java.io.Serializable;
 /**
  * 
  */
-public class Jks implements PlayerMatchData {
+public class Kyousuke implements PlayerMatchData {
 
 
 	/**

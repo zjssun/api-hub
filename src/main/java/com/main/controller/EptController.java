@@ -27,12 +27,6 @@ public class EptController extends ABaseController{
     ImService imService;
 
     @Resource
-    JameService jameService;
-
-    @Resource
-    JksService jksService;
-
-    @Resource
     JlService jlService;
 
     @Resource
@@ -58,6 +52,9 @@ public class EptController extends ABaseController{
 
     @Resource
     ZywooService zywooService;
+
+    @Resource
+    KyousukeService kyousukeService;
 
     private static final Logger logger = LoggerFactory.getLogger(EptController.class);
     @GetMapping("/{playerName}")
@@ -88,12 +85,6 @@ public class EptController extends ABaseController{
                     List<Niko> nikoList = nikoService.findListByParam(niko);
                     return getSuccessResponseVO(nikoList);
                 }
-                case "jks" -> {
-                    JksQuery jks = new JksQuery();
-                    jks.setOrderBy("timestamp desc");
-                    List<Jks> jksList = jksService.findListByParam(jks);
-                    return getSuccessResponseVO(jksList);
-                }
                 case "twistzz" -> {
                     TwistzzQuery twistzz = new TwistzzQuery();
                     twistzz.setOrderBy("timestamp desc");
@@ -105,12 +96,6 @@ public class EptController extends ABaseController{
                     elige.setOrderBy("timestamp desc");
                     List<Elige> eligeList = eligeService.findListByParam(elige);
                     return getSuccessResponseVO(eligeList);
-                }
-                case "jame" -> {
-                    JameQuery jame = new JameQuery();
-                    jame.setOrderBy("timestamp desc");
-                    List<Jame> jameList = jameService.findListByParam(jame);
-                    return getSuccessResponseVO(jameList);
                 }
                 case "ropz" -> {
                     RopzQuery ropz = new RopzQuery();
@@ -141,6 +126,12 @@ public class EptController extends ABaseController{
                     im.setOrderBy("timestamp desc");
                     List<Im> imList = imService.findListByParam(im);
                     return getSuccessResponseVO(imList);
+                }
+                case "kyousuke"->{
+                    KyousukeQuery kyousukeQuery = new KyousukeQuery();
+                    kyousukeQuery.setOrderBy("timestamp desc");
+                    List<Kyousuke> kyousukeList = kyousukeService.findListByParam(kyousukeQuery);
+                    return getSuccessResponseVO(kyousukeList);
                 }
             }
         }else {
