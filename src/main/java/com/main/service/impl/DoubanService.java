@@ -40,7 +40,7 @@ public class DoubanService {
                     douban.setName(dataItem.getString("title"));
                     JSONObject rating = dataItem.getJSONObject("rating");
                     douban.setScore(rating.getString("value"));
-                    douban.setUrl(Constants.DouBan_ARTICLE_URL+dataItem.getString("36653963"));
+                    douban.setUrl(Constants.DouBan_ARTICLE_URL+dataItem.getString("id"));
                     doubanList.add(douban);
                 }
             }else {

@@ -4,6 +4,7 @@ import com.main.constant.Constants;
 import com.main.entity.po.Douban;
 import com.main.entity.po.Juejin;
 import com.main.entity.po.ThePaper;
+import com.main.entity.po.Tskr;
 import com.main.redis.RedisUtils;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,9 @@ public class RedisComponet {
     public List<Douban> getDoubanList(){
         return (List<Douban>) redisUtils.get(Constants.DOUBAN_REDIS_KEY);
     }
+    public List<Tskr> getTskrList(){
+        return (List<Tskr>) redisUtils.get(Constants.TSKR_REDIS_KEY);
+    }
 
     //设置缓存
     public void setPaperList(List<ThePaper> paperList){
@@ -35,6 +39,9 @@ public class RedisComponet {
     }
     public void setDoubanList(List<Douban> doubanList){
         redisUtils.setex(Constants.DOUBAN_REDIS_KEY, doubanList, Constants.REDIS_TIME_THRITY_MIN);
+    }
+    public void setTskrList(List<Tskr> tskrList){
+        redisUtils.setex(Constants.TSKR_REDIS_KEY,tskrList,Constants.REDIS_TIME_THRITY_MIN);
     }
 
 }

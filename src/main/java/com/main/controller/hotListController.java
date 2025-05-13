@@ -4,10 +4,12 @@ import com.main.component.RedisComponet;
 import com.main.entity.po.Douban;
 import com.main.entity.po.Juejin;
 import com.main.entity.po.ThePaper;
+import com.main.entity.po.Tskr;
 import com.main.entity.vo.ResponseVO;
 import com.main.service.impl.DoubanService;
 import com.main.service.impl.JuejinService;
 import com.main.service.impl.ThePaperService;
+import com.main.service.impl.TskrService;
 import com.main.task.MyScheduledTask;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -28,6 +30,8 @@ public class hotListController extends ABaseController{
     private JuejinService juejinService;
     @Resource
     private DoubanService doubanService;
+    @Resource
+    private TskrService tskrService;
 
     private static final Logger logger = LoggerFactory.getLogger(hotListController.class);
 
@@ -72,6 +76,19 @@ public class hotListController extends ABaseController{
             redisComponet.setDoubanList(doubanList);
         }
         return getSuccessResponseVO(doubanList);
+    }
+
+    @RequestMapping("/36kr")
+    public ResponseVO Tskr(){
+        List<Tskr> tskrList;
+        tskrList = redisComponet.getTskrList();
+        if(tskrList != null && !tskrList.isEmpty()){
+            logger.info("从Redis获取36kr数据成功!");
+        }else {
+            tskrList = tskrService.fetchTskrData();
+            redisComponet.setTskrList(tskrList);
+        }
+        return getSuccessResponseVO(tskrList);
     }
 
 

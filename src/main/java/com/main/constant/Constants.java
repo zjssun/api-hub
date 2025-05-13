@@ -9,10 +9,13 @@ public class Constants {
     public static final String JUEJIN_ARTICLE_URL = "https://juejin.cn/post/";
     public static final String DouBan_URL = "https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv?start=0&limit=20&category=tv&type=tv_american&ck=tuI6";
     public static final String DouBan_ARTICLE_URL = "https://movie.douban.com/subject/";
+    public static final String TSKR_URL = "https://gateway.36kr.com/api/mis/nav/home/nav/rank/hot";
+    public static final String TSKR_ARTICLE_URL = "https://www.36kr.com/p/";
     
     //redis
     public static final String THE_PAPER_REDIS_KEY = "thePaper";
     public static final Integer REDIS_TIME_THRITY_MIN = 1800000;
     public static final String JUEJIN_REDIS_KEY = "juejin";
     public static final String DOUBAN_REDIS_KEY = "douban";
+    public static final String TSKR_REDIS_KEY = "tskr";
 }
