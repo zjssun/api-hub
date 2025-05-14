@@ -77,7 +77,7 @@ public class MyScheduledTask {
     private final WebClient RoomClient = WebClient.create();
     private final WebClient DetailClient = WebClient.create();
 
-    @Scheduled(fixedRate = 60 * 1000)
+    @Scheduled(fixedRate = 30 * 60 * 1000)
     public void executeTask(){
         logger.info("定时任务执行中...");
 
