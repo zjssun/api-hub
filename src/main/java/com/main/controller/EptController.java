@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/getMatch")
+@RequestMapping("/getmatch")
 public class EptController extends ABaseController{
     @Resource
     DonkService donkService;

@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/hotList")
+@RequestMapping("/hotlist")
 public class hotListController extends ABaseController{
     @Resource
     private ThePaperService thePaperService;
@@ -64,7 +64,7 @@ public class hotListController extends ABaseController{
         return getSuccessResponseVO(juejinList);
     }
 
-    @RequestMapping("/doubanEA")
+    @RequestMapping("/doubanea")
     public ResponseVO DoubanEA(){
         List<Douban> doubanList;
         doubanList = redisComponet.getDoubanList();

@@ -13,6 +13,7 @@ import com.main.utils.MatchTools;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -68,8 +69,6 @@ public class MyScheduledTask {
     @Resource
     KyousukeService kyousukeService;
 
-
-
     private static final Logger logger = LoggerFactory.getLogger(MyScheduledTask.class);
     private static final SimpleDateFormat SDF = new SimpleDateFormat("MMM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
     //创建 WebClient 对象
@@ -77,7 +76,7 @@ public class MyScheduledTask {
     private final WebClient RoomClient = WebClient.create();
     private final WebClient DetailClient = WebClient.create();
 
-    @Scheduled(fixedRate = 30 * 60 * 1000)
+    @Scheduled(fixedRateString = "${scheduler.time}")
     public void executeTask(){
         logger.info("定时任务执行中...");
 
@@ -229,6 +228,7 @@ public class MyScheduledTask {
             }
         }
         logger.info("--- 所有玩家历史数据解析和转换完毕 ---");
+        //删除过期数据
         delExpireData();
     }
 

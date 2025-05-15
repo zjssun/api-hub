@@ -12,32 +12,16 @@
 **API-HUB** is an aggregated API service for trending content across various platforms. Designed for developers who want quick and reliable access to hot data — no scraping, no tokens, just clean and ready-to-use APIs.
 
 ---
-## 🧰 技术栈 | Tech Stack
-
-### 🚀 后端框架 | Backend Framework
-![Spring Boot](https://img.shields.io/badge/SpringBoot-6DB33F?style=flat&logo=springboot&logoColor=white)
-![Servlet](https://img.shields.io/badge/Servlet-Java%20EE-4479A1?style=flat&logo=java&logoColor=white)
-
-### 💾 数据持久层 | Data Access
-![MyBatis](https://img.shields.io/badge/MyBatis-0C6BA0?style=flat&logo=data&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
-
-### 🌐 通用特性 | General Features
-![RESTful API](https://img.shields.io/badge/REST%20API-Implemented-005571?style=flat&logo=api&logoColor=white)
-![JSON](https://img.shields.io/badge/JSON-Data-FFCA28?style=flat&logo=json&logoColor=black)
-![CORS Enabled](https://img.shields.io/badge/CORS-enabled-brightgreen)
-
----
 
 ## 📚 接口速览 | API Overview
 
-| 📌 数据源 | 🧩 接口路径 | 💬 描述                                                  |
-|---------|-------------|--------------------------------------------------------|
-| 🎮 职业哥天梯 | `/getMatch/{playerName}` | 查询指定玩家的天梯数据（CS2）<br>Get CS2 ladder info by player name |
-| 📰 澎湃新闻 | `/hotList/paper` | 最新要闻热点<br>Latest news highlights from The Paper        |
-| 💡 掘金技术热榜 | `/hotList/juejin` | 掘金技术社区热门文章<br>Hot tech posts from Juejin               |
-| 🎬 豆瓣欧美剧榜 | `/hotList/doubanEA` | 豆瓣热门欧美剧<br>Trending Western shows on Douban            |
-| 🧠 36氪热门 | `/hotList/36kr` | 36氪商业科技热文<br>Hot business/tech articles from 36Kr      |
+| 📌 数据源 | 🧩 接口路径                  | 💬 描述                                                |
+|---------|--------------------------|------------------------------------------------------|
+| 🎮 职业哥天梯 | `/getmatch/{playerName}` | 查询指定玩家的天梯数据（CS2）<br>Get CS2 ladder info by player name |
+| 📰 澎湃新闻 | `/hotlist/paper`         | 最新要闻热点<br>Latest news highlights from The Paper      |
+| 💡 掘金技术热榜 | `/hotlist/juejin`        | 掘金社区热门文章<br>Hot tech posts from Juejin               |
+| 🎬 豆瓣欧美剧榜 | `/hotlist/doubanea`      | 豆瓣热门欧美剧<br>Trending Western shows on Douban          |
+| 🧠 36氪热门 | `/hotlist/36kr`          | 36氪商业/科技热文<br>Hot business/tech articles from 36Kr   |
 
 ### playName | pro player Name
 目前支持以下职业哥的天梯/比赛数据（持续更新中）：
@@ -60,8 +44,8 @@
 1. 直接访问任意接口，例如：
 
 ```bash
-GET samrol-express.shop/getMatch/donk
-GET samrol-express.shop/hotList/juejin
+GET samrol-express.shop/getmatch/donk
+GET samrol-express.shop/hotlist/juejin
 ```
 - 所有接口默认返回标准JSON | All interfaces return standard JSON by default.
 - 支持跨域调用（CORS Enabled）
