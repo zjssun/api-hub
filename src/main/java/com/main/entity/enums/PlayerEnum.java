@@ -13,7 +13,7 @@ public enum PlayerEnum {
     JL("jl", "23b6ffbb-86ec-47ab-acaa-9c76bed0af66", Jl.class),
     W0NDERFUL("w0nderful", "591e26a3-eb86-4d4c-afa8-b5754455dc03", W0nderful.class),
     NIKO("niko", "19606e0c-137b-4885-a904-744fa12d25f6", Niko.class),
-    KYOUSUKE("jks", "9a8ea9d5-61c7-4b38-b64f-35f4945048fa", Kyousuke.class),
+    KYOUSUKE("kyousuke", "64000660-f2d2-4c9b-8e29-6ad5ec2b49cf", Kyousuke.class),
     TWISTZZ("twistzz", "a51c1404-1c5e-4688-b82c-ade59245e5b1", Twistzz.class);
 
     private final String name;
