@@ -136,7 +136,7 @@ public class EptController extends ABaseController{
                     List<Kyousuke> kyousukeList = kyousukeService.findListByParam(kyousukeQuery);
                     return getSuccessResponseVO(kyousukeList);
                 }
-                case "forzen"->{
+                case "frozen"->{
                     FrozenQuery frozenQuery = new FrozenQuery();
                     frozenQuery.setOrderBy("timestamp desc");
                     List<Frozen> forzenList = frozenService.findListByParam(frozenQuery);
