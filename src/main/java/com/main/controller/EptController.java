@@ -56,6 +56,9 @@ public class EptController extends ABaseController{
     @Resource
     KyousukeService kyousukeService;
 
+    @Resource
+    FrozenService frozenService;
+
     private static final Logger logger = LoggerFactory.getLogger(EptController.class);
     @GetMapping("/{playerName}")
     public ResponseVO getPlayerInfo(@PathVariable String playerName) {
@@ -132,6 +135,12 @@ public class EptController extends ABaseController{
                     kyousukeQuery.setOrderBy("timestamp desc");
                     List<Kyousuke> kyousukeList = kyousukeService.findListByParam(kyousukeQuery);
                     return getSuccessResponseVO(kyousukeList);
+                }
+                case "forzen"->{
+                    FrozenQuery frozenQuery = new FrozenQuery();
+                    frozenQuery.setOrderBy("timestamp desc");
+                    List<Frozen> forzenList = frozenService.findListByParam(frozenQuery);
+                    return getSuccessResponseVO(forzenList);
                 }
             }
         }else {

@@ -69,6 +69,9 @@ public class MyScheduledTask {
     @Resource
     KyousukeService kyousukeService;
 
+    @Resource
+    FrozenService frozenService;
+
     private static final Logger logger = LoggerFactory.getLogger(MyScheduledTask.class);
     private static final SimpleDateFormat SDF = new SimpleDateFormat("MMM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
     //创建 WebClient 对象
@@ -212,6 +215,13 @@ public class MyScheduledTask {
                                 kyousukeService.add(kyousuke);
                             }catch (Exception e){
                                 logger.info("kyousuke已存在数据库{}", data);
+                            }
+                        }
+                        case Frozen forzen->{
+                            try {
+                                frozenService.add(forzen);
+                            }catch (Exception e){
+                                logger.info("forzen已存在数据库{}", data);
                             }
                         }
                         case null, default -> {
@@ -534,6 +544,18 @@ public class MyScheduledTask {
             if (timestampMillis - ts > Constants.TWO_MONTH_TIME) {
                 logger.info("Kyousuke的时间戳为：{}", k.getTimestamp());
                 kyousukeService.deleteKyousukeByTime(k.getTime());
+            }
+        });
+
+        //Forzen
+        FrozenQuery frozenQuery = new FrozenQuery();
+        frozenQuery.setOrderBy("timestamp desc");
+        List<Frozen> flist = frozenService.findListByParam(frozenQuery);
+        flist.forEach(f->{
+            long ts = Long.parseLong(f.getTimestamp());
+            if (timestampMillis - ts > Constants.TWO_MONTH_TIME){
+                logger.info("Forzen的时间戳为：{}", f.getTimestamp());
+                frozenService.deleteFrozenByTime(f.getTime());
             }
         });
 
