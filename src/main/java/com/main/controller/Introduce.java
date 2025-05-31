@@ -1,6 +1,7 @@
 package com.main.controller;
 
 import com.main.entity.vo.ResponseVO;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@CrossOrigin
 public class Introduce extends ABaseController{
     @RequestMapping("/")
     public ResponseVO index(){

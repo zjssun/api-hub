@@ -94,6 +94,12 @@
 			<version>4.0.1</version>
 		</dependency>
 
+		<!-- protobuf	-->
+		<dependency>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java</artifactId>
+			<version>4.31.1</version>
+		</dependency>
 
 	</dependencies>
 
