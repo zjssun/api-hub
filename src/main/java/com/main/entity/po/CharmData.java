@@ -4,8 +4,8 @@ public class CharmData {
     public String name;
     public String pattern;
     public String x;
-    public String y;
-    public String slot;
+    public String z;
+    public String highlight;
 
     public String getName() {
         return name;
@@ -31,19 +31,12 @@ public class CharmData {
         this.x = x;
     }
 
-    public String getY() {
-        return y;
+
+    public String getHighlight() {
+        return highlight;
     }
 
-    public void setY(String y) {
-        this.y = y;
-    }
-
-    public String getSlot() {
-        return slot;
-    }
-
-    public void setSlot(String slot) {
-        this.slot = slot;
+    public void setHighlight(String highlight) {
+        this.highlight = highlight;
     }
 }

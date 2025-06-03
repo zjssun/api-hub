@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/getmatch")
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class EptController extends ABaseController{
     @Resource
     DonkService donkService;

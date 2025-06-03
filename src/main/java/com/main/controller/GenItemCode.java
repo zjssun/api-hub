@@ -11,36 +11,24 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
-import java.util.HexFormat;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.zip.CRC32;
 
 @RestController
 @RequestMapping("/getItemCode")
-@CrossOrigin
+@CrossOrigin( origins = {
+        "http://localhost:5173",
+},allowCredentials = "true")
 public class GenItemCode extends ABaseController{
     private static final Logger logger = LoggerFactory.getLogger(GenItemCode.class);
-    //将 float 转换为其大端序的4字节整数表示
-    private int floatToIntBytesBigEndian(float floatVal) {
-        ByteBuffer buffer = ByteBuffer.allocate(4);
-        buffer.order(ByteOrder.BIG_ENDIAN);
-        buffer.putFloat(floatVal);
-        buffer.rewind();
-        return buffer.getInt();
-    }
-    //将 byte[] 转换为十六进制字符串
-    private String bytesToHex(byte[] bytes) {
-        return HexFormat.of().formatHex(bytes).toUpperCase();
-    }
 
     @RequestMapping("/")
     public ResponseVO getItemCode(@RequestBody InspectRequestData requestData) {
         try {
             logger.info(JSON.toJSONString(requestData));
+            StringBuilder gencode = new StringBuilder("!gen ");
             Econ.CEconItemPreviewDataBlock.Builder econBuilder = Econ.CEconItemPreviewDataBlock.newBuilder();
-            //填充数据
+            //辨别码
             if (!requestData.itemId.isEmpty()) {
                 econBuilder.setItemid(Long.parseLong(requestData.itemId));
             }
@@ -51,21 +39,42 @@ public class GenItemCode extends ABaseController{
             //物品id
             if(!requestData.gunIndex.isEmpty()){
                 econBuilder.setDefindex(Integer.parseInt(requestData.gunIndex));
+                gencode.append(requestData.gunIndex).append(" ");
             }
             //皮肤id
             if(!requestData.skinIndex.isEmpty()){
                 econBuilder.setPaintindex(Integer.parseInt(requestData.skinIndex));
+                gencode.append(requestData.skinIndex).append(" ");
             }
 
             //模板编号
-            if(!requestData.skinIndex.isEmpty()){
+            if(!requestData.pattern.isEmpty()){
                 econBuilder.setPaintseed(Integer.parseInt(requestData.pattern));
+                gencode.append(requestData.pattern).append(" ");
+            }else {
+                gencode.append(0).append(" ");
             }
 
             //磨损度
             if(!requestData.wear.isEmpty()){
-                logger.info("wear:" + requestData.wear);
-                econBuilder.setPaintwear(Integer.parseInt(requestData.wear));
+                logger.info(requestData.wear);
+                econBuilder.setPaintwear(Float.floatToIntBits(Float.parseFloat(requestData.wear)));
+                gencode.append(requestData.wear).append(" ");
+            }else {
+                gencode.append(0).append(" ");
+            }
+
+            //音乐盒
+            if(!requestData.musicIndex.isEmpty()){
+                econBuilder.setMusicindex(Integer.parseInt(requestData.musicIndex));
+            }
+
+            if(!requestData.entIndex.isEmpty()){
+                econBuilder.setEntindex(Integer.parseInt(requestData.entIndex));
+            }
+
+            if(!requestData.petIndex.isEmpty()){
+                econBuilder.setPetindex(Integer.parseInt(requestData.petIndex));
             }
 
             //是否是StatTrak
@@ -79,18 +88,23 @@ public class GenItemCode extends ABaseController{
                 econBuilder.setCustomname(requestData.nameTag);
             }
             //是否有贴纸
-            if(requestData.stickers != null){
-                for(StickerData stickerData : requestData.stickers){
-                    if(!stickerData.name.isEmpty()){
-                        Econ.CEconItemPreviewDataBlock.Sticker.Builder stickerBuilder = Econ.CEconItemPreviewDataBlock.Sticker.newBuilder();
-                        stickerBuilder.setStickerId(Integer.parseInt(stickerData.name));
-                        if(!stickerData.slot.isEmpty())stickerBuilder.setSlot(Integer.parseInt(stickerData.slot));
-                        if(!stickerData.wear.isEmpty())stickerBuilder.setWear(floatToIntBytesBigEndian(Float.parseFloat(stickerData.wear)));
-                        if(!stickerData.rotation.isEmpty())stickerBuilder.setRotation(floatToIntBytesBigEndian(Float.parseFloat(stickerData.rotation)));
-                        if(!stickerData.x.isEmpty())stickerBuilder.setOffsetX(floatToIntBytesBigEndian(Float.parseFloat(stickerData.x)));
-                        if(!stickerData.y.isEmpty())stickerBuilder.setOffsetY(floatToIntBytesBigEndian(Float.parseFloat(stickerData.y)));
-                        econBuilder.addStickers(stickerBuilder.build());
-                    }
+            for(StickerData stickerData : requestData.stickers){
+                if(!stickerData.name.isEmpty()) {
+                    Econ.CEconItemPreviewDataBlock.Sticker.Builder stickerBuilder = Econ.CEconItemPreviewDataBlock.Sticker.newBuilder();
+                    stickerBuilder.setStickerId(Integer.parseInt(stickerData.name));
+                    if (!stickerData.slot.isEmpty()) stickerBuilder.setSlot(Integer.parseInt(stickerData.slot));
+                    if (!stickerData.wear.isEmpty())
+                        stickerBuilder.setWear(Float.parseFloat(stickerData.wear));
+                    if (!stickerData.rotation.isEmpty())
+                        stickerBuilder.setRotation(Float.parseFloat(stickerData.rotation));
+                    if (!stickerData.x.isEmpty())
+                        stickerBuilder.setOffsetX(Float.parseFloat(stickerData.x));
+                    if (!stickerData.y.isEmpty())
+                        stickerBuilder.setOffsetY(Float.parseFloat(stickerData.y));
+                    econBuilder.addStickers(stickerBuilder.build());
+                    gencode.append(stickerData.name).append(" ").append(stickerData.wear).append(" ");
+                }else {
+                    gencode.append("0 0 ");
                 }
             }
             //是否有挂件
@@ -98,41 +112,48 @@ public class GenItemCode extends ABaseController{
                 Econ.CEconItemPreviewDataBlock.Sticker.Builder stickerBuilder = Econ.CEconItemPreviewDataBlock.Sticker.newBuilder();
                 stickerBuilder.setStickerId(Integer.parseInt(requestData.charm.name));
                 if(!requestData.charm.pattern.isEmpty())stickerBuilder.setPattern(Integer.parseInt(requestData.charm.pattern));
-                if(!requestData.charm.slot.isEmpty())stickerBuilder.setSlot(Integer.parseInt(requestData.charm.slot));
-                if(!requestData.charm.x.isEmpty())stickerBuilder.setOffsetX(floatToIntBytesBigEndian(Float.parseFloat(requestData.charm.x)));
-                if(!requestData.charm.y.isEmpty())stickerBuilder.setOffsetY(floatToIntBytesBigEndian(Float.parseFloat(requestData.charm.y)));
+                if(!requestData.charm.x.isEmpty())stickerBuilder.setOffsetX(Float.parseFloat(requestData.charm.x));
+                if(!requestData.charm.z.isEmpty())stickerBuilder.setOffsetZ(Float.parseFloat(requestData.charm.z));
+                if(!requestData.charm.highlight.isEmpty())stickerBuilder.setHighlightReel(Integer.parseInt(requestData.charm.highlight));
                 econBuilder.addKeychains(stickerBuilder.build());
+                gencode.append(requestData.charm.name).append(" ").append(requestData.charm.pattern);
+            }else {
+                gencode.append("0 0 ");
             }
 
             Econ.CEconItemPreviewDataBlock econInstance = econBuilder.build();
-            byte[] serializedProto = econInstance.toByteArray();
-            ByteBuffer bufferForCrc = ByteBuffer.allocate(1 + serializedProto.length);
-            bufferForCrc.put((byte) 0);
-            bufferForCrc.put(serializedProto);
-            byte[] crcInputBytes = bufferForCrc.array();
+            byte[] serialized = econInstance.toByteArray();
+            int protoSize = serialized.length;
+            ByteBuffer buffer = ByteBuffer.allocate(1 + protoSize + 4);
+            buffer.order(ByteOrder.BIG_ENDIAN);
+
+            buffer.put((byte) 0x00); // null byte prefix
+            buffer.put(serialized); // protobuf bytes
+
+            // CRC32 over the first part (0x00 + serialized)
             CRC32 crc32 = new CRC32();
-            crc32.update(crcInputBytes);
-            long crcValue = crc32.getValue();
+            crc32.update(buffer.array(), 0, 1 + protoSize);
+            long crc = crc32.getValue();
 
-            int protoByteSize = serializedProto.length;
-            long crcLower16 = crcValue & 0xFFFFL;
-            long factor = (long)protoByteSize * crcValue;
-            int xoredCrcUnsigned = (int) ((crcLower16 ^ factor) & 0xFFFFFFFFL);
+            // XOR: (crc lower 16 bits) ^ (protoSize * crc)
+            long xoredCrc = (crc & 0xFFFFL) ^ ((long) protoSize * crc);
+            int xoredCrcInt = (int) (xoredCrc & 0xFFFFFFFFL); // Ensure 4-byte limit
 
-            ByteBuffer checksumBuffer = ByteBuffer.allocate(4);
-            checksumBuffer.order(ByteOrder.BIG_ENDIAN);
-            checksumBuffer.putInt(xoredCrcUnsigned);
-            byte[] checksumBytes = checksumBuffer.array();
+            // Append the 4-byte CRC (big-endian)
+            buffer.putInt(xoredCrcInt);
 
-            ByteBuffer finalBuffer = ByteBuffer.allocate(crcInputBytes.length + checksumBytes.length);
-            finalBuffer.put(crcInputBytes);
-            finalBuffer.put(checksumBytes);
+            // Convert to hex (uppercase)
+            byte[] finalBytes = buffer.array();
+            StringBuilder hexBuilder = new StringBuilder(finalBytes.length * 2);
+            for (byte b : finalBytes) {
+                hexBuilder.append(String.format("%02X", b));
+            }
 
-            String hexString = bytesToHex(finalBuffer.array());
-            logger.info(hexString);
+            logger.info(hexBuilder.toString());
             Map<String,Object> map = new HashMap<>();
-            map.put("inspectCode", "csgo_econ_action_preview " + hexString);
-
+            map.put("inspectCode", "csgo_econ_action_preview " + hexBuilder);
+            map.put("genCode", gencode.toString());
+            gencode.setLength(0);
             return getSuccessResponseVO(map);
         }catch (Exception e){
             return getServerErrorResponseVO(e.getMessage());

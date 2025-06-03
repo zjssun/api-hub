@@ -12,6 +12,9 @@ public class InspectRequestData {
     public String statTrakCount;
     public String pattern;
     public String wear;
+    public String musicIndex;
+    public String entIndex;
+    public String petIndex;
     public CharmData charm;
     public List<StickerData> stickers;
 
@@ -101,5 +104,29 @@ public class InspectRequestData {
 
     public void setStickers(List<StickerData> stickers) {
         this.stickers = stickers;
+    }
+
+    public String getMusicIndex() {
+        return musicIndex;
+    }
+
+    public void setMusicIndex(String musicIndex) {
+        this.musicIndex = musicIndex;
+    }
+
+    public String getEntindex() {
+        return entIndex;
+    }
+
+    public void setEntindex(String entIndex) {
+        this.entIndex = entIndex;
+    }
+
+    public String getPetindex() {
+        return petIndex;
+    }
+
+    public void setPetindex(String petIndex) {
+        this.petIndex = petIndex;
     }
 }

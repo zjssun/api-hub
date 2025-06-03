@@ -22,7 +22,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/hotlist")
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class hotListController extends ABaseController{
     @Resource
     private ThePaperService thePaperService;

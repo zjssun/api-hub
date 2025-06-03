@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class Introduce extends ABaseController{
     @RequestMapping("/")
     public ResponseVO index(){
