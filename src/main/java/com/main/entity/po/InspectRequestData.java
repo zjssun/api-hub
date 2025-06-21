@@ -8,7 +8,6 @@ public class InspectRequestData {
     public String gunIndex;
     public String skinIndex;
     public String nameTag;
-    public Boolean statTrak;
     public String statTrakCount;
     public String pattern;
     public String wear;
@@ -56,14 +55,6 @@ public class InspectRequestData {
 
     public void setNameTag(String nameTag) {
         this.nameTag = nameTag;
-    }
-
-    public Boolean getStatTrak() {
-        return statTrak;
-    }
-
-    public void setStatTrak(Boolean statTrak) {
-        this.statTrak = statTrak;
     }
 
     public String getStatTrakCount() {

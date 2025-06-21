@@ -78,7 +78,7 @@ public class GenItemCode extends ABaseController{
             }
 
             //是否是StatTrak
-            if(Boolean.TRUE.equals(requestData.statTrak)){
+            if(!requestData.statTrakCount.isEmpty()){
                 econBuilder.setKilleatervalue(0);
                 econBuilder.setKilleatervalue(Integer.parseInt(requestData.statTrakCount));
             }
@@ -149,7 +149,6 @@ public class GenItemCode extends ABaseController{
                 hexBuilder.append(String.format("%02X", b));
             }
 
-            logger.info(hexBuilder.toString());
             Map<String,Object> map = new HashMap<>();
             map.put("inspectCode", "csgo_econ_action_preview " + hexBuilder);
             map.put("genCode", gencode.toString());
