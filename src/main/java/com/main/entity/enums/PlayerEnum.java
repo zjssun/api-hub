@@ -2,8 +2,12 @@ package com.main.entity.enums;
 
 import com.main.entity.po.*;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
 public enum PlayerEnum {
-    MONESY("m0nesy", "93306681-bce6-4369-8c41-e0bdba2597ed", M0nesy.class),
+    M0NESY("m0nesy", "93306681-bce6-4369-8c41-e0bdba2597ed", M0nesy.class),
     DONK("donk", "e5e8e2a6-d716-4493-b949-e16965f41654", Donk.class),
     S1MPLE("s1mple", "ac71ba3c-d3d4-45e7-8be2-26aa3986867d", S1mple.class),
     IM("im", "09701d83-187e-41e6-997d-a50b3e8d4d38", Im.class),
@@ -39,22 +43,21 @@ public enum PlayerEnum {
         return dataClass;
     }
 
-    //根据 name 查找枚举
-    public static PlayerEnum fromName(String name) {
-        for (PlayerEnum p : PlayerEnum.values()) {
-            if (p.name.equalsIgnoreCase(name)) {
-                return p;
-            }
+    //创建一个静态的 Map 用于反向查找。
+    private static final Map<Class<? extends PlayerMatchData>, PlayerEnum> CLASS_TO_ENUM_MAP = new HashMap<>();
+    //从名称字符串进行反向查找
+    private static final Map<String,PlayerEnum> NAME_TO_ENUM_MAP = new HashMap<>();
+    static {
+        for (PlayerEnum player : values()) {
+            CLASS_TO_ENUM_MAP.put(player.getDataClass(), player);
+            NAME_TO_ENUM_MAP.put(player.getName(),player);
         }
-        return null;
     }
-    //根据 uuid 查找枚举
-    public static PlayerEnum fromUuid(String uuid) {
-        for (PlayerEnum p : PlayerEnum.values()) {
-            if (p.uuid.equalsIgnoreCase(uuid)) {
-                return p;
-            }
-        }
-        return null;
+    public static Optional<PlayerEnum> fromDataClass(Class<? extends PlayerMatchData> dataClass) {
+        return Optional.ofNullable(CLASS_TO_ENUM_MAP.get(dataClass));
     }
+    public static Optional<PlayerEnum> fromName(String name){
+        return Optional.ofNullable(NAME_TO_ENUM_MAP.get(name));
+    }
+
 }

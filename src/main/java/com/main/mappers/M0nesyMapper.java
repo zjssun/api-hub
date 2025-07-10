@@ -1,28 +1,7 @@
 package com.main.mappers;
 
-import org.apache.ibatis.annotations.Param;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.main.entity.po.M0nesy;
 
-/**
- *  数据库操作接口
- */
-public interface M0nesyMapper<T,P> extends BaseMapper<T,P> {
-
-	/**
-	 * 根据Time更新
-	 */
-	 Integer updateByTime(@Param("bean") T t,@Param("time") String time);
-
-
-	/**
-	 * 根据Time删除
-	 */
-	 Integer deleteByTime(@Param("time") String time);
-
-
-	/**
-	 * 根据Time获取对象
-	 */
-	 T selectByTime(@Param("time") String time);
-
-
+public interface M0nesyMapper extends BaseMapper<M0nesy> {
 }

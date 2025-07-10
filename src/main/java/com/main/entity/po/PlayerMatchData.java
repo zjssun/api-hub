@@ -23,4 +23,5 @@ public interface  PlayerMatchData extends Serializable {
     void setPentaKill(String pentaKill);
     void setTimestamp(String timestamp);
     void setAdr(String adr);
+    String getTimestamp();
 }
