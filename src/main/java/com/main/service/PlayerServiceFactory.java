@@ -25,10 +25,13 @@ public class PlayerServiceFactory {
     @PostConstruct
     public void init(){
         for(BaseMapper<? extends PlayerMatchData> mapper : mappers){
+            //获取BaseMappe<? extends PlayerMatchData>的类型信息
             ResolvableType resolvableType = ResolvableType.forClass(mapper.getClass()).as(BaseMapper.class);
+            // 获取玩家类的类型信息
             Class<?> entityType = resolvableType.getGeneric(0).resolve();
 
             if(entityType != null && PlayerMatchData.class.isAssignableFrom(entityType)){
+                //保存为[Donk:DonkMapper]
                 mapperMap.put((Class<? extends PlayerMatchData>) entityType,mapper);
             }
         }

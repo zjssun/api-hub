@@ -36,7 +36,7 @@ public class ThePaperService {
                             JSONObject newsItem = hotNewsArray.getJSONObject(i);
                             if(newsItem != null){
                                 ThePaper paper = new ThePaper();
-                                paper.setcoutId(newsItem.getString("contId"));
+                                paper.setCoutId(newsItem.getString("contId"));
                                 paper.setTitle(newsItem.getString("name"));
                                 paper.setUrl(Constants.THE_PAPER_ARTICLE_URL + newsItem.getString("contId"));
                                 paperList.add(paper);

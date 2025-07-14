@@ -53,9 +53,11 @@ public enum PlayerEnum {
             NAME_TO_ENUM_MAP.put(player.getName(),player);
         }
     }
+    //通过类名来找对应的枚举
     public static Optional<PlayerEnum> fromDataClass(Class<? extends PlayerMatchData> dataClass) {
         return Optional.ofNullable(CLASS_TO_ENUM_MAP.get(dataClass));
     }
+    //通过名称找对应的枚举
     public static Optional<PlayerEnum> fromName(String name){
         return Optional.ofNullable(NAME_TO_ENUM_MAP.get(name));
     }
