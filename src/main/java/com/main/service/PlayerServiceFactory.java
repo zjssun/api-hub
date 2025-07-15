@@ -78,7 +78,13 @@ public class PlayerServiceFactory {
             return Collections.emptyList();
         }
         return getMapper(playerEnumOptional.get())
-                .map(mapper->mapper.selectList(null))
+                .map(this::performFindAllAndSort)
                 .orElse(Collections.emptyList());
+    }
+
+    private <T extends PlayerMatchData> List<T> performFindAllAndSort(BaseMapper<T> mapper) {
+        QueryWrapper<T> queryWrapper = new QueryWrapper<>();
+        queryWrapper.orderByDesc("timestamp");
+        return mapper.selectList(queryWrapper);
     }
 }

@@ -23,8 +23,7 @@ public class EptController extends ABaseController{
     public ResponseVO getPlayerInfo(@PathVariable String playerName) {
         if(playerName != null){
             List<? extends PlayerMatchData> list = playerServiceFactory.findAllMatchesByPlayerName(playerName);
-            logger.info("获取到的数据为{}",list);
-            return getServerErrorResponseVO(list);
+            return getSuccessResponseVO(list);
         }else {
             return getServerErrorResponseVO("没有该选手");
         }
