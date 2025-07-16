@@ -19,7 +19,8 @@ public enum PlayerEnum {
     NIKO("niko", "19606e0c-137b-4885-a904-744fa12d25f6", Niko.class),
     KYOUSUKE("kyousuke", "64000660-f2d2-4c9b-8e29-6ad5ec2b49cf", Kyousuke.class),
     TWISTZZ("twistzz", "a51c1404-1c5e-4688-b82c-ade59245e5b1", Twistzz.class),
-    FROZEN("frozen", "18911949-a23d-4b42-bd0b-7a970b51824c", Frozen.class);
+    FROZEN("frozen", "18911949-a23d-4b42-bd0b-7a970b51824c", Frozen.class),
+    BOROS("boros","4c3a4a59-0cdb-4477-b90b-1109a1d0cf13",Boros.class);
 
     private final String name;
     private final String uuid;

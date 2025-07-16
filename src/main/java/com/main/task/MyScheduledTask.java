@@ -36,7 +36,6 @@ public class MyScheduledTask {
     //创建 WebClient 对象
     private final WebClient client = WebClient.create();
     private final WebClient RoomClient = WebClient.create();
-    private final WebClient DetailClient = WebClient.create();
 
     @Scheduled(fixedRateString = "${scheduler.time}")
     public void executeTask(){
