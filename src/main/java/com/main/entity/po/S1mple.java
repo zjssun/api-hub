@@ -1,48 +1,82 @@
 package com.main.entity.po;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.Data;
-
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import java.io.Serializable;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
 
+/**
+ * <p>
+ * 
+ * </p>
+ *
+ * @author author
+ * @since 2025-07-22
+ */
 @Data
+@EqualsAndHashCode(callSuper = false)
+@TableName("s1mple")
 public class S1mple implements PlayerMatchData {
 
-	private String time;
+    private static final long serialVersionUID = 1L;
 
-	private String nickName;
+    @TableField("nick_name")
+    private String nickName;
 
-	private String team;
+    @TableField("team")
+    private String team;
 
-	private String matchMap;
+    @TableField("match_map")
+    private String matchMap;
 
-	private String matchScore;
+    @TableField("match_score")
+    private String matchScore;
 
-	private String matchResult;
+    @TableField("match_result")
+    private String matchResult;
 
-	private String matchId;
+    @TableField("match_id")
+    private String matchId;
 
-	private String roomUrl;
+    @TableField("room_url")
+    private String roomUrl;
 
-	private String bestOf;
+    @TableField("best_of")
+    private String bestOf;
 
-	private String effectiveRanking;
+    @TableField("effective_ranking")
+    private String effectiveRanking;
 
-	private String totalKills;
+    @TableField("total_kills")
+    private String totalKills;
 
-	private String totalDeaths;
+    @TableField("total_deaths")
+    private String totalDeaths;
 
-	private String totalAssistsl;
+    @TableField("total_assistsL")
+    private String totalAssistsl;
 
-	private String rating;
+    @TableField("rating")
+    private String rating;
 
-	private String tripleKill;
+    @TableField("triple_kill")
+    private String tripleKill;
 
-	private String quadroKill;
+    @TableField("quadro_kill")
+    private String quadroKill;
 
-	private String pentaKill;
+    @TableField("penta_kill")
+    private String pentaKill;
 
-	private String timestamp;
+    @TableId(value = "timestamp", type = IdType.NONE)
+    private String timestamp;
 
-	private String adr;
+    @TableField("adr")
+    private String adr;
+
+
 }

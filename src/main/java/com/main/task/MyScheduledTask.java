@@ -32,7 +32,6 @@ public class MyScheduledTask {
     private PlayerServiceFactory playerServiceFactory;
 
     private static final Logger logger = LoggerFactory.getLogger(MyScheduledTask.class);
-    private static final SimpleDateFormat SDF = new SimpleDateFormat("MMM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
     //创建 WebClient 对象
     private final WebClient client = WebClient.create();
     private final WebClient RoomClient = WebClient.create();
@@ -107,7 +106,6 @@ public class MyScheduledTask {
         //删除过期数据
         delExpireData();
     }
-
     //保存JSON数据到对应的类
     private Mono<PlayerMatchData> processSingleMatchStat(PlayerEnum playerEnum,JSONObject matchStat) throws NoSuchMethodException {
         if(matchStat==null){
@@ -124,7 +122,6 @@ public class MyScheduledTask {
         }
         Long createdAtTimestamp = matchStat.getLong("created_at");
         if (createdAtTimestamp != null) {
-            matchData.setTime(SDF.format(new Date(createdAtTimestamp)));
             matchData.setTimestamp(String.valueOf(createdAtTimestamp));
         }
         //NickName

@@ -16,9 +16,6 @@ import java.util.zip.CRC32;
 
 @RestController
 @RequestMapping("/getItemCode")
-@CrossOrigin( origins = {
-        "http://localhost:5173",
-},allowCredentials = "true")
 public class GenItemCode extends ABaseController{
     private static final Logger logger = LoggerFactory.getLogger(GenItemCode.class);
 

@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/getmatch")
-@CrossOrigin(origins = "*")
 public class EptController extends ABaseController{
     @Autowired
     private PlayerServiceFactory playerServiceFactory;

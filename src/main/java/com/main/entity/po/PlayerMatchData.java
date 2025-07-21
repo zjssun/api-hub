@@ -4,7 +4,6 @@ package com.main.entity.po;
 import java.io.Serializable;
 
 public interface  PlayerMatchData extends Serializable {
-    void setTime(String time);
     void setNickName(String nickName);
     void setTeam(String team);
     void setMatchMap(String matchMap);
