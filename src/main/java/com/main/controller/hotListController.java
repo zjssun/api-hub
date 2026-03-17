@@ -6,11 +6,13 @@ import com.main.entity.po.Juejin;
 import com.main.entity.po.ThePaper;
 import com.main.entity.po.Tskr;
 import com.main.entity.vo.ResponseVO;
-import com.main.service.impl.*;
+import com.main.service.DoubanService;
+import com.main.service.JuejinService;
+import com.main.service.ThePaperService;
+import com.main.service.TskrService;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 

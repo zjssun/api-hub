@@ -29,19 +29,21 @@ import java.util.*;
 @ConditionalOnProperty(name = "scheduler.enabled", havingValue = "true", matchIfMissing = true)
 public class MyScheduledTask {
     @Autowired
-    private PlayerServiceFactory playerServiceFactory;
+    private PlayerMatchService playerMatchService;
 
     private static final Logger logger = LoggerFactory.getLogger(MyScheduledTask.class);
     //创建 WebClient 对象
     private final WebClient client = WebClient.create();
     private final WebClient RoomClient = WebClient.create();
 
+    private record PendingPlayerMatch(PlayerEnum playerEnum, PlayerMatch match) {
+    }
+
     @Scheduled(fixedRateString = "${scheduler.time}")
     public void executeTask(){
         logger.info("定时任务执行中...");
 
-        //创建一个 PlayerMatchData对象的流
-        Flux<PlayerMatchData> resultFlux = Flux.fromArray(PlayerEnum.values())
+        Flux<PendingPlayerMatch> resultFlux = Flux.fromArray(PlayerEnum.values())
                 .flatMap(playerEnum -> {
                     logger.info("准备获取{}的比赛数据", playerEnum.getName());
                     String url = "https://www.faceit.com/api/stats/v1/stats/time/users/"+playerEnum.getUuid()+"/games/cs2?page=0&size=3&game_mode=5v5";
@@ -64,19 +66,12 @@ public class MyScheduledTask {
                                     logger.error("解析玩家 {} 的初始比赛历史JSON失败",playerEnum.getName());
                                     return Flux.<JSONObject>empty();
                                 }
-                            }).flatMap(matchStat-> {
-                                try {
-                                    return processSingleMatchStat(playerEnum, matchStat);
-                                } catch (NoSuchMethodException e) {
-                                    logger.info("执行{}的processSingleMatchStat失败！",playerEnum.getName());
-                                    throw new RuntimeException(e);
-                                }
-                            });
+                            }).flatMap(matchStat -> processSingleMatchStat(playerEnum, matchStat)
+                                    .map(match -> new PendingPlayerMatch(playerEnum, match)));
                 });
 
 
-        //将所有的结果收集到一个 Map 中
-        List<PlayerMatchData> allParsedMatches = null;
+        List<PendingPlayerMatch> allParsedMatches = null;
         try {
             allParsedMatches = resultFlux.collectList().block(Duration.ofSeconds(170));
         }catch (IllegalStateException e){
@@ -87,18 +82,11 @@ public class MyScheduledTask {
         //保存到数据库
         if (allParsedMatches != null && !allParsedMatches.isEmpty()) {
             logger.info("--- 开始保存玩家数据到数据库 (共 {} 条记录) ---", allParsedMatches.size());
-            for (PlayerMatchData data : allParsedMatches) {
+            for (PendingPlayerMatch parsedMatch : allParsedMatches) {
                 try {
-                    @SuppressWarnings("unchecked")
-                    Class<? extends PlayerMatchData> dataClass = (Class<? extends PlayerMatchData>) data.getClass();
-                    Optional<PlayerEnum> playerEnumOptional = PlayerEnum.fromDataClass(dataClass);
-                    if(playerEnumOptional.isPresent()){
-                        playerServiceFactory.save(playerEnumOptional.get(), data);
-                    }else {
-                        logger.error("无法为类 {} 找到对应的 PlayerEnum 配置。", data.getClass().getName());
-                    }
+                    playerMatchService.save(parsedMatch.playerEnum(), parsedMatch.match());
                 }catch (Exception e){
-                    logger.error("Error saving data for {} : {}", data.getClass().getSimpleName(), e.getMessage(), e);
+                    logger.error("Error saving data for {} : {}", parsedMatch.playerEnum().getName(), e.getMessage(), e);
                 }
             }
         }
@@ -107,19 +95,11 @@ public class MyScheduledTask {
         delExpireData();
     }
     //保存JSON数据到对应的类
-    private Mono<PlayerMatchData> processSingleMatchStat(PlayerEnum playerEnum,JSONObject matchStat) throws NoSuchMethodException {
+    private Mono<PlayerMatch> processSingleMatchStat(PlayerEnum playerEnum,JSONObject matchStat) {
         if(matchStat==null){
             return Mono.empty();
         }
-        //实例接口类
-        PlayerMatchData matchData;
-        //实例玩家类
-        try {
-            matchData = playerEnum.getDataClass().getDeclaredConstructor().newInstance();
-        }catch (Exception  e){
-            logger.error("创建玩家 {} (类: {}) 的数据对象实例失败: {}", playerEnum.getName(), playerEnum.getDataClass().getName(), e.getMessage(), e);
-            return Mono.empty();
-        }
+        PlayerMatch matchData = new PlayerMatch();
         Long createdAtTimestamp = matchStat.getLong("created_at");
         if (createdAtTimestamp != null) {
             matchData.setTimestamp(String.valueOf(createdAtTimestamp));
@@ -206,9 +186,9 @@ public class MyScheduledTask {
     private void delExpireData(){
         logger.info("正在检查过期数据...");
         for(PlayerEnum playerEnum : PlayerEnum.values()){
-           int deletedCount = playerServiceFactory.deleteOutdatedData(playerEnum,Constants.TWO_MONTH_TIME);
+           int deletedCount = playerMatchService.deleteOutdatedData(playerEnum,Constants.TWO_MONTH_TIME);
            if(deletedCount>0){
-               logger.info("删除了玩家{}的{}条过期数据",playerEnum.getName(),deletedCount);
+                logger.info("删除了玩家{}的{}条过期数据",playerEnum.getName(),deletedCount);
            }
         }
         logger.info("检查完毕!");

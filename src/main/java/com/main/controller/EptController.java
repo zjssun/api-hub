@@ -1,9 +1,8 @@
 package com.main.controller;
 
-import com.main.entity.po.PlayerMatchData;
+import com.main.entity.po.PlayerMatch;
 import com.main.entity.vo.ResponseVO;
-
-import com.main.service.PlayerServiceFactory;
+import com.main.service.PlayerMatchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +14,13 @@ import java.util.List;
 @RequestMapping("/getmatch")
 public class EptController extends ABaseController{
     @Autowired
-    private PlayerServiceFactory playerServiceFactory;
+    private PlayerMatchService playerMatchService;
 
     private static final Logger logger = LoggerFactory.getLogger(EptController.class);
     @GetMapping("/{playerName}")
     public ResponseVO getPlayerInfo(@PathVariable String playerName) {
         if(playerName != null){
-            List<? extends PlayerMatchData> list = playerServiceFactory.findAllMatchesByPlayerName(playerName);
+            List<PlayerMatch> list = playerMatchService.findAllMatchesByPlayerName(playerName);
             return getSuccessResponseVO(list);
         }else {
             return getServerErrorResponseVO("没有该选手");
