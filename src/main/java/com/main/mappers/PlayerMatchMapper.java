@@ -16,7 +16,7 @@ public interface PlayerMatchMapper {
                     "triple_kill, quadro_kill, penta_kill, timestamp, adr" +
                     ") VALUES (" +
                     "#{match.nickName}, #{match.team}, #{match.matchMap}, #{match.matchScore}, #{match.matchResult}, #{match.matchId}, #{match.roomUrl}, " +
-                    "#{match.bestOf}, #{match.effectiveRanking}, #{match.totalKills}, #{match.totalDeaths}, #{match.totalAssistsl}, #{match.rating}, " +
+                    "#{match.bestOf}, #{match.effectiveRanking}, #{match.totalKills}, #{match.totalDeaths}, #{match.totalAssists}, #{match.rating}, " +
                     "#{match.tripleKill}, #{match.quadroKill}, #{match.pentaKill}, #{match.timestamp}, #{match.adr}" +
                     ")"
     )
@@ -30,7 +30,7 @@ public interface PlayerMatchMapper {
                     "nick_name AS nickName, team, match_map AS matchMap, match_score AS matchScore, " +
                     "match_result AS matchResult, match_id AS matchId, room_url AS roomUrl, best_of AS bestOf, " +
                     "effective_ranking AS effectiveRanking, total_kills AS totalKills, total_deaths AS totalDeaths, " +
-                    "total_assistsL AS totalAssistsl, rating, triple_kill AS tripleKill, quadro_kill AS quadroKill, " +
+                    "total_assistsL AS totalAssists, rating, triple_kill AS tripleKill, quadro_kill AS quadroKill, " +
                     "penta_kill AS pentaKill, timestamp, adr " +
                     "FROM ${tableName} ORDER BY CAST(timestamp AS UNSIGNED) DESC"
     )

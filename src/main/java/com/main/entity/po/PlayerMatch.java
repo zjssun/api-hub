@@ -19,7 +19,7 @@ public class PlayerMatch implements Serializable {
     private String effectiveRanking;
     private String totalKills;
     private String totalDeaths;
-    private String totalAssistsl;
+    private String totalAssists;
     private String rating;
     private String tripleKill;
     private String quadroKill;

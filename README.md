@@ -50,6 +50,19 @@ GET samrol-express.shop/hotlist/juejin
 - 所有接口默认返回标准JSON | All interfaces return standard JSON by default.
 - 支持跨域调用（CORS Enabled）
 ---
+
+## 📝 更新日志 | Changelog
+
+### 2026-04-07
+
+- 将 FACEIT 职业哥比赛数据源切换为官方 `open.faceit.com/data/v4` API。
+- 新增 `faceit.api.token` / `FACEIT_API_TOKEN` 配置支持，便于本地与服务器环境管理鉴权信息。
+- 重写 FACEIT 比赛历史、比赛详情、队伍均分的解析逻辑，提升线上可用性与数据准确性。
+- 优化定时任务的超时、重试、错误日志与失败降级处理，方便排查服务器部署问题。
+- 补充 FACEIT 解析相关测试，降低后续接口变更带来的维护成本。
+
+---
+
 ## 📢 免责声明 | Disclaimer
 
 - 本项目仅供学习与研究使用，所有数据来源于公开网页。
