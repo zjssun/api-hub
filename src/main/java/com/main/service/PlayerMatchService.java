@@ -25,8 +25,12 @@ public class PlayerMatchService {
     }
 
     public boolean save(PlayerEnum playerEnum, PlayerMatch data) {
+        if (data == null || data.getMatchId() == null || data.getMatchId().isBlank()) {
+            logger.warn("玩家 {} 的比赛数据缺少 matchId，跳过保存", playerEnum.getName());
+            return false;
+        }
         try {
-            return playerMatchMapper.insert(resolveTableName(playerEnum), data) > 0;
+            return playerMatchMapper.insertIfAbsent(resolveTableName(playerEnum), data) > 0;
         } catch (DataIntegrityViolationException e) {
             return false;
         }
