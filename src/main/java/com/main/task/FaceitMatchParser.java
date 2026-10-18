@@ -2,6 +2,7 @@ package com.main.task;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.main.component.ProPlayerRegistry;
 import com.main.entity.enums.PlayerEnum;
 import com.main.entity.po.PlayerMatch;
 import com.main.utils.MatchTools;
@@ -11,6 +12,12 @@ import java.util.Optional;
 
 final class FaceitMatchParser {
     private static final String UNKNOWN = "unknown";
+
+    private final ProPlayerRegistry proPlayerRegistry;
+
+    FaceitMatchParser(ProPlayerRegistry proPlayerRegistry) {
+        this.proPlayerRegistry = proPlayerRegistry;
+    }
 
     Optional<HistoryMatchContext> parseHistoryMatch(PlayerEnum playerEnum, JSONObject historyItem) {
         if (historyItem == null) {
@@ -36,6 +43,10 @@ final class FaceitMatchParser {
         playerMatch.setTimestamp(toTimestampString(historyItem.getLong("started_at")));
         playerMatch.setMatchScore(buildMatchScore(historyItem.getJSONObject("results"), playerHistoryInfo.get().teamKey()));
         playerMatch.setMatchResult(resolveMatchResult(historyItem.getJSONObject("results"), playerHistoryInfo.get().teamKey()));
+
+        ProSides proSides = findProsInTeams(teamsObject, playerHistoryInfo.get().teamKey(), playerEnum.getUuid());
+        playerMatch.setTeammates(proSides.teammates());
+        playerMatch.setOpponents(proSides.opponents());
         return Optional.of(new HistoryMatchContext(playerMatch, playerHistoryInfo.get().teamKey()));
     }
 
@@ -133,6 +144,50 @@ final class FaceitMatchParser {
         }
 
         return Optional.empty();
+    }
+
+    private ProSides findProsInTeams(JSONObject teamsObject, String playerTeamKey, String selfPlayerId) {
+        StringBuilder teammates = new StringBuilder();
+        StringBuilder opponents = new StringBuilder();
+        if (teamsObject == null) {
+            return new ProSides(null, null);
+        }
+        for (Map.Entry<String, Object> entry : teamsObject.entrySet()) {
+            JSONObject teamObject = teamsObject.getJSONObject(entry.getKey());
+            if (teamObject == null) {
+                continue;
+            }
+            JSONArray players = teamObject.getJSONArray("players");
+            if (players == null) {
+                continue;
+            }
+            StringBuilder side = entry.getKey().equals(playerTeamKey) ? teammates : opponents;
+            for (Object playerObject : players) {
+                if (!(playerObject instanceof JSONObject playerJson)) {
+                    continue;
+                }
+                String playerId = playerJson.getString("player_id");
+                if (playerId == null || playerId.equals(selfPlayerId)) {
+                    continue;
+                }
+                Optional<String> displayName = proPlayerRegistry.displayNameOf(playerId);
+                if (displayName.isEmpty()) {
+                    continue;
+                }
+                if (side.length() > 0) {
+                    side.append(',');
+                }
+                side.append(displayName.get());
+            }
+        }
+        return new ProSides(toNullable(teammates), toNullable(opponents));
+    }
+
+    private String toNullable(StringBuilder builder) {
+        return builder.length() == 0 ? null : builder.toString();
+    }
+
+    private record ProSides(String teammates, String opponents) {
     }
 
     private Optional<JSONObject> findPlayerStats(JSONArray teamsArray, String playerId) {

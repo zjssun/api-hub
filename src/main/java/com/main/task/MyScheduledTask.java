@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
+import com.main.component.ProPlayerRegistry;
 import com.main.constant.Constants;
 import com.main.entity.enums.PlayerEnum;
 import com.main.entity.po.PlayerMatch;
@@ -47,11 +48,12 @@ public class MyScheduledTask {
 
     public MyScheduledTask(
             PlayerMatchService playerMatchService,
+            ProPlayerRegistry proPlayerRegistry,
             @Value("${faceit.api.base-url:https://open.faceit.com/data/v4}") String faceitApiBaseUrl,
             @Value("${faceit.api.token:}") String faceitApiToken,
             @Value("${faceit.api.history-limit:2}") int historyLimit) {
         this.playerMatchService = playerMatchService;
-        this.faceitMatchParser = new FaceitMatchParser();
+        this.faceitMatchParser = new FaceitMatchParser(proPlayerRegistry);
         this.faceitClient = WebClient.builder()
                 .defaultHeader(HttpHeaders.USER_AGENT, FACEIT_USER_AGENT)
                 .build();

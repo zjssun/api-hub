@@ -26,4 +26,6 @@ public class PlayerMatch implements Serializable {
     private String pentaKill;
     private String timestamp;
     private String adr;
+    private String teammates;
+    private String opponents;
 }

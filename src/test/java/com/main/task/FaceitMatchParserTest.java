@@ -2,6 +2,7 @@ package com.main.task;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.main.component.ProPlayerRegistry;
 import com.main.entity.enums.PlayerEnum;
 import com.main.entity.po.PlayerMatch;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FaceitMatchParserTest {
-    private final FaceitMatchParser parser = new FaceitMatchParser();
+    private final FaceitMatchParser parser = new FaceitMatchParser(new ProPlayerRegistry());
 
     @Test
     void parseHistoryMatchMapsPlayerFieldsFromOfficialHistoryResponse() {
@@ -103,6 +104,60 @@ class FaceitMatchParserTest {
         assertEquals("faction2", parsedMatch.get().teamKey());
         assertEquals("4/13", playerMatch.getMatchScore());
         assertEquals("loss", playerMatch.getMatchResult());
+    }
+
+    @Test
+    void parseHistoryMatchDetectsProTeammatesAndOpponents() {
+        JSONObject historyItem = JSON.parseObject("""
+                {
+                  "match_id": "1-match-c",
+                  "started_at": 1775508983,
+                  "results": {
+                    "winner": "faction1",
+                    "score": {
+                      "faction1": 13,
+                      "faction2": 10
+                    }
+                  },
+                  "teams": {
+                    "faction1": {
+                      "players": [
+                        {
+                          "player_id": "e5e8e2a6-d716-4493-b949-e16965f41654",
+                          "nickname": "donk666"
+                        },
+                        {
+                          "player_id": "168530f8-107a-4e0a-b641-655d2f1594de",
+                          "nickname": "sh1ro"
+                        },
+                        {
+                          "player_id": "1ace868a-d60c-46b8-a61e-f51d40d0305b",
+                          "nickname": "magixx"
+                        }
+                      ]
+                    },
+                    "faction2": {
+                      "players": [
+                        {
+                          "player_id": "3b536dda-e3dd-40cd-baed-7e66ab050c8f",
+                          "nickname": "ZywOo"
+                        },
+                        {
+                          "player_id": "someone-else",
+                          "nickname": "other"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """);
+
+        Optional<FaceitMatchParser.HistoryMatchContext> parsedMatch = parser.parseHistoryMatch(PlayerEnum.DONK, historyItem);
+
+        assertTrue(parsedMatch.isPresent());
+        PlayerMatch playerMatch = parsedMatch.get().match();
+        assertEquals("sh1ro,magixx", playerMatch.getTeammates());
+        assertEquals("ZywOo", playerMatch.getOpponents());
     }
 
     @Test

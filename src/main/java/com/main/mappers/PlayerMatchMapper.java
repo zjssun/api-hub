@@ -14,12 +14,12 @@ public interface PlayerMatchMapper {
             "INSERT INTO ${tableName} (",
             "nick_name, team, match_map, match_score, match_result, match_id, room_url,",
             "best_of, effective_ranking, total_kills, total_deaths, total_assistsL, rating,",
-            "triple_kill, quadro_kill, penta_kill, timestamp, adr",
+            "triple_kill, quadro_kill, penta_kill, timestamp, adr, teammates, opponents",
             ")",
             "SELECT",
             "#{match.nickName}, #{match.team}, #{match.matchMap}, #{match.matchScore}, #{match.matchResult}, #{match.matchId}, #{match.roomUrl},",
             "#{match.bestOf}, #{match.effectiveRanking}, #{match.totalKills}, #{match.totalDeaths}, #{match.totalAssists}, #{match.rating},",
-            "#{match.tripleKill}, #{match.quadroKill}, #{match.pentaKill}, #{match.timestamp}, #{match.adr}",
+            "#{match.tripleKill}, #{match.quadroKill}, #{match.pentaKill}, #{match.timestamp}, #{match.adr}, #{match.teammates}, #{match.opponents}",
             "FROM DUAL",
             "WHERE NOT EXISTS (",
             "SELECT 1 FROM ${tableName} WHERE match_id = #{match.matchId}",
@@ -37,7 +37,7 @@ public interface PlayerMatchMapper {
                     "match_result AS matchResult, match_id AS matchId, room_url AS roomUrl, best_of AS bestOf, " +
                     "effective_ranking AS effectiveRanking, total_kills AS totalKills, total_deaths AS totalDeaths, " +
                     "total_assistsL AS totalAssists, rating, triple_kill AS tripleKill, quadro_kill AS quadroKill, " +
-                    "penta_kill AS pentaKill, timestamp, adr " +
+                    "penta_kill AS pentaKill, timestamp, adr, teammates, opponents " +
                     "FROM ${tableName} ORDER BY CAST(timestamp AS UNSIGNED) DESC"
     )
     List<PlayerMatch> findAllOrderByTimestampDesc(@Param("tableName") String tableName);
