@@ -18,7 +18,8 @@
 | 📌 数据源 | 🧩 接口路径                  | 💬 描述                                                |
 |---------|--------------------------|------------------------------------------------------|
 | 🎮 职业哥天梯 | `/getmatch/{playerName}` | 查询指定玩家的天梯数据（CS2）<br>Get CS2 ladder info by player name |
-| 📰 澎湃新闻 | `/hotlist/paper`         | 最新要闻热点<br>Latest news highlights from The Paper      |
+| �️ 投票 | `/vote` (POST)<br>`/vote/stats` (GET) | 为想新增的职业哥投票<br>按票数降序返回全局投票统计 |
+| �📰 澎湃新闻 | `/hotlist/paper`         | 最新要闻热点<br>Latest news highlights from The Paper      |
 | 💡 掘金技术热榜 | `/hotlist/juejin`        | 掘金社区热门文章<br>Hot tech posts from Juejin               |
 | 🎬 豆瓣欧美剧榜 | `/hotlist/doubanea`      | 豆瓣热门欧美剧<br>Trending Western shows on Douban          |
 | 🧠 36氪热门 | `/hotlist/36kr`          | 36氪商业/科技热文<br>Hot business/tech articles from 36Kr   |
@@ -52,6 +53,13 @@ GET samrol-express.shop/hotlist/juejin
 ---
 
 ## 📝 更新日志 | Changelog
+
+### 2026-11-10
+
+- 移除选手 BOROS（`PlayerEnum`、前端导航与对应数据表同步删除）。
+- 新增对局职业哥识别：新增 `pro-players.json` 职业选手注册表（67 人，含被追踪的 13 人）与 `ProPlayerRegistry` 组件；解析 FACEIT history 阵容时按 `player_id` 识别同阵营/对方阵营的职业哥，比赛记录新增 `teammates`、`opponents` 字段，各选手表同步加列（仅对新增数据生效）。
+- 新增投票接口 `POST /vote` 与 `GET /vote/stats`，配套 `pro_votes` 表按规范化名字（小写）聚合票数，供前端统计展示。
+- 数据库全部表字符集/排序规则统一为 `utf8mb4` / `utf8mb4_general_ci`。
 
 ### 2026-04-07
 
