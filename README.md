@@ -55,7 +55,10 @@ GET samrol-express.shop/hotlist/juejin
 ## 📝 更新日志 | Changelog
 
 ### 2026-11-10
+- 新增 YouTube 视频解析下载服务，基于 yt-dlp 子进程实现：视频信息解析、封面代理、下载任务管理（进度轮询/取消/文件取回）、定时清理，面向微信小程序提供后端接口，接口需 API Key 鉴权，支持 cookies 应对风控。
+- 新增下载服务相关配置组，外部工具路径、cookies、并发数、文件保留时长等支持环境变量覆盖。
 
+### 2026-10-19
 - 移除选手 BOROS（`PlayerEnum`、前端导航与对应数据表同步删除）。
 - 新增对局职业哥识别：新增 `pro-players.json` 职业选手注册表（67 人，含被追踪的 13 人）与 `ProPlayerRegistry` 组件；解析 FACEIT history 阵容时按 `player_id` 识别同阵营/对方阵营的职业哥，比赛记录新增 `teammates`、`opponents` 字段，各选手表同步加列（仅对新增数据生效）。
 - 新增投票接口 `POST /vote` 与 `GET /vote/stats`，配套 `pro_votes` 表按规范化名字（小写）聚合票数，供前端统计展示。
