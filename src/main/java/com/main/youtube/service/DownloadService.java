@@ -1,6 +1,7 @@
 package com.main.youtube.service;
 
 import com.main.exception.BusinessException;
+import com.main.service.UsageService;
 import com.main.youtube.config.YoutubeProperties;
 import com.main.youtube.entity.DownloadJob;
 import com.main.youtube.entity.dto.DownloadRequest;
@@ -55,21 +56,31 @@ public class DownloadService {
     private final YtDlpCommandBuilder commandBuilder;
     private final YtDlpService ytDlpService;
     private final ProcessRunner processRunner;
+    private final UsageService usageService;
 
     private final Map<String, DownloadJob> jobs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Semaphore concurrencyLimit;
 
     public DownloadService(YoutubeProperties properties, YtDlpCommandBuilder commandBuilder,
-                           YtDlpService ytDlpService, ProcessRunner processRunner) {
+                           YtDlpService ytDlpService, ProcessRunner processRunner,
+                           UsageService usageService) {
         this.properties = properties;
         this.commandBuilder = commandBuilder;
         this.ytDlpService = ytDlpService;
         this.processRunner = processRunner;
+        this.usageService = usageService;
         this.concurrencyLimit = new Semaphore(Math.max(1, properties.getMaxConcurrent()));
     }
 
-    public JobInfo submit(DownloadRequest request) {
+    public JobInfo submit(DownloadRequest request, Long userId, String visitorUid) {
+        // 当日配额硬闸：剩余额度下发为 --max-filesize，yt-dlp 超限即中止
+        long remaining = usageService.remainingBytes(userId, visitorUid);
+        if (remaining <= 0) {
+            throw new BusinessException("今日用量已用完");
+        }
+        request.setMaxFilesizeBytes(remaining);
+
         String url = ytDlpService.normalizeUrl(request.getUrl());
         String jobId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
@@ -78,8 +89,10 @@ public class DownloadService {
 
         DownloadJob job = new DownloadJob();
         job.setJobId(jobId);
+        job.setUserId(userId);
+        job.setVisitorUid(visitorUid);
         jobs.put(jobId, job);
-        executor.submit(() -> runJob(job, command));
+        executor.submit(() -> runJob(job, command, request));
 
         return job.toInfo();
     }
@@ -121,7 +134,7 @@ public class DownloadService {
         return job.toInfo();
     }
 
-    private void runJob(DownloadJob job, List<String> command) {
+    private void runJob(DownloadJob job, List<String> command, DownloadRequest request) {
         boolean acquired = false;
         try {
             concurrencyLimit.acquire();
@@ -150,6 +163,14 @@ public class DownloadService {
                 if (job.getFilePath() == null) {
                     job.setFilePath(findNewestFile(dir));
                 }
+                // GIF 提取：X/Twitter 的"GIF"实为静音 mp4，下载后转 .gif
+                if (Boolean.TRUE.equals(request.getGif()) && job.getFilePath() != null) {
+                    convertToGif(job);
+                }
+                // 完成才计当日用量（按实际文件大小）
+                if (job.getFilePath() != null && Files.exists(job.getFilePath())) {
+                    usageService.charge(job.getUserId(), job.getVisitorUid(), Files.size(job.getFilePath()));
+                }
                 job.setStatus(JobStatus.FINISHED);
                 job.setPercentHint(100.0);
             } else {
@@ -176,6 +197,49 @@ public class DownloadService {
                 concurrencyLimit.release();
             }
         }
+    }
+
+    /** ffmpeg 将已下载视频转码为循环 gif；失败时保留原 mp4 */
+    private void convertToGif(DownloadJob job) {
+        Path src = job.getFilePath();
+        String name = src.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        Path gifFile = src.resolveSibling((dot > 0 ? name.substring(0, dot) : name) + ".gif");
+
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ffmpegBinary());
+        cmd.add("-y");
+        cmd.add("-i");
+        cmd.add(src.toString());
+        cmd.add("-vf");
+        cmd.add("fps=15,scale=480:-1:flags=lanczos");
+        cmd.add("-loop");
+        cmd.add("0");
+        cmd.add(gifFile.toString());
+        try {
+            processRunner.run(cmd, Duration.ofMinutes(5));
+            if (Files.exists(gifFile)) {
+                Files.deleteIfExists(src);
+                job.setFilePath(gifFile);
+            }
+        } catch (Exception e) {
+            logger.warn("gif 转码失败 jobId={}，保留原视频: {}", job.getJobId(), e.getMessage());
+        }
+    }
+
+    /** ffmpeg 可执行文件路径：配置为目录时拼接平台可执行名，留空走 PATH */
+    private String ffmpegBinary() {
+        String configured = properties.getFfmpegPath();
+        if (StringUtils.hasText(configured)) {
+            Path p = Path.of(configured);
+            if (Files.isDirectory(p)) {
+                String exe = System.getProperty("os.name", "").toLowerCase().contains("win")
+                        ? "ffmpeg.exe" : "ffmpeg";
+                return p.resolve(exe).toString();
+            }
+            return configured;
+        }
+        return "ffmpeg";
     }
 
     private void handleOutputLine(DownloadJob job, String line) {
@@ -224,6 +288,12 @@ public class DownloadService {
         cmd.add("after_move:" + FILE_PREFIX + "%(filepath)s");
 
         cmd.add("--windows-filenames");
+
+        // 下载大小硬上限按当日剩余配额动态下发（在 submit 中计算）
+        if (request.getMaxFilesizeBytes() != null && request.getMaxFilesizeBytes() > 0) {
+            cmd.add("--max-filesize");
+            cmd.add(String.valueOf(request.getMaxFilesizeBytes()));
+        }
 
         if (Boolean.TRUE.equals(request.getAudioOnly())) {
             String audioFormat = StringUtils.hasText(request.getAudioFormat())

@@ -30,3 +30,6 @@ build/
 /log.path_IS_UNDEFINED
 ### VS Code ###
 .vscode/
+
+### downloaded files ###
+/downloads/

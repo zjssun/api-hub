@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -42,20 +43,46 @@ public class YtDlpService {
             "default", List.of("default", "hq")
     );
 
+    /** 通用封面代理的域名白名单（后缀匹配），防止接口被用作任意 SSRF 代理 */
+    private static final List<String> THUMB_HOST_ALLOWLIST = List.of(
+            "ytimg.com", "ggpht.com", "googlevideo.com",
+            "twimg.com", "hdslb.com", "biliimg.com"
+    );
+    private static final long MAX_THUMB_BYTES = 5L * 1024 * 1024;
+
+    /** 封面拉取结果：字节 + 原始 Content-Type */
+    public record Thumbnail(byte[] data, String contentType) {
+    }
+
     private final YoutubeProperties properties;
     private final YtDlpCommandBuilder commandBuilder;
     private final ProcessRunner processRunner;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
+    private final HttpClient httpClient;
 
     public YtDlpService(YoutubeProperties properties, YtDlpCommandBuilder commandBuilder,
                         ProcessRunner processRunner) {
         this.properties = properties;
         this.commandBuilder = commandBuilder;
         this.processRunner = processRunner;
+
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .followRedirects(HttpClient.Redirect.NORMAL);
+        // 封面走代理拉取（i.ytimg.com 在部分网络环境不可直连）
+        if (StringUtils.hasText(properties.getProxy())) {
+            clientBuilder.proxy(ProxySelector.of(parseProxyAddress(properties.getProxy())));
+        }
+        this.httpClient = clientBuilder.build();
+    }
+
+    private static java.net.InetSocketAddress parseProxyAddress(String proxy) {
+        String addr = proxy.contains("://") ? proxy.substring(proxy.indexOf("://") + 3) : proxy;
+        int colon = addr.lastIndexOf(':');
+        if (colon < 0) {
+            throw new BusinessException("youtube.proxy 格式不正确，应为 host:port");
+        }
+        return new java.net.InetSocketAddress(addr.substring(0, colon), Integer.parseInt(addr.substring(colon + 1)));
     }
 
     /** 把 11 位 videoId 规范化为完整 URL，其余输入原样交给 yt-dlp */
@@ -120,7 +147,15 @@ public class YtDlpService {
         info.setDescription(text(root, "description"));
         info.setThumbnail(text(root, "thumbnail"));
         info.setUploadDate(formatUploadDate(text(root, "upload_date")));
-        info.setThumbnailProxyUrl("/api/youtube/thumbnail/" + info.getId());
+        info.setPlatform(text(root, "extractor_key"));
+
+        // 封面代理：有原始地址走通用代理，缺失时 YouTube 退回按 id 构造
+        if (StringUtils.hasText(info.getThumbnail())) {
+            info.setThumbnailProxyUrl("/api/youtube/thumbnail?url="
+                    + java.net.URLEncoder.encode(info.getThumbnail(), java.nio.charset.StandardCharsets.UTF_8));
+        } else if (StringUtils.hasText(info.getId()) && VIDEO_ID.matcher(info.getId()).matches()) {
+            info.setThumbnailProxyUrl("/api/youtube/thumbnail/" + info.getId());
+        }
 
         List<ThumbnailInfo> thumbs = new ArrayList<>();
         for (JsonNode t : root.path("thumbnails")) {
@@ -214,6 +249,94 @@ public class YtDlpService {
             logger.warn("拉取封面失败 videoId={}, res={}: {}", videoId, res, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * 通用封面代理：仅放行白名单域名下的 https 图片，带磁盘缓存。
+     *
+     * @return 图片字节与 Content-Type，失败返回 null
+     */
+    public Thumbnail fetchThumbnailByUrl(String rawUrl) {
+        if (!StringUtils.hasText(rawUrl)) {
+            throw new BusinessException("封面地址不能为空");
+        }
+        URI uri;
+        try {
+            uri = URI.create(rawUrl.trim());
+        } catch (Exception e) {
+            throw new BusinessException("封面地址不合法");
+        }
+        String host = uri.getHost();
+        if (host == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new BusinessException("封面地址仅支持 https");
+        }
+        String h = host.toLowerCase();
+        boolean allowed = THUMB_HOST_ALLOWLIST.stream()
+                .anyMatch(d -> h.equals(d) || h.endsWith("." + d));
+        if (!allowed) {
+            throw new BusinessException("不支持的封面域名: " + host);
+        }
+
+        Path cacheDir = Path.of(properties.getOutputDir(), "_thumbs");
+        Path cacheFile = cacheDir.resolve(md5Hex(rawUrl.trim()) + thumbExt(uri.getPath()));
+        try {
+            if (Files.exists(cacheFile)) {
+                return new Thumbnail(Files.readAllBytes(cacheFile), thumbContentType(cacheFile));
+            }
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(15))
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            String contentType = response.headers().firstValue("Content-Type").orElse("image/jpeg");
+            if (response.statusCode() == 200
+                    && contentType.toLowerCase().startsWith("image/")
+                    && response.body().length > 0 && response.body().length <= MAX_THUMB_BYTES) {
+                Files.createDirectories(cacheDir);
+                Files.write(cacheFile, response.body());
+                return new Thumbnail(response.body(), contentType);
+            }
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            logger.warn("拉取封面失败 url={}: {}", rawUrl, e.getMessage());
+        }
+        return null;
+    }
+
+    private static String thumbExt(String path) {
+        if (path != null) {
+            String lower = path.toLowerCase();
+            for (String ext : new String[]{".webp", ".png", ".gif", ".jpg"}) {
+                if (lower.endsWith(ext)) {
+                    return ext;
+                }
+            }
+        }
+        return ".jpg";
+    }
+
+    private static String thumbContentType(Path file) {
+        String name = file.getFileName().toString().toLowerCase();
+        if (name.endsWith(".webp")) return "image/webp";
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".gif")) return "image/gif";
+        return "image/jpeg";
+    }
+
+    private static String md5Hex(String text) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(text.hashCode());
+        }
     }
 
     private String formatUploadDate(String uploadDate) {

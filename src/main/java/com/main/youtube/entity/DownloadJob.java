@@ -28,6 +28,10 @@ public class DownloadJob {
     private volatile Path filePath;
     private volatile String errorMessage;
 
+    /** 提交者身份（用于完成时配额计费）：登录用户 id 或游客 uid */
+    private Long userId;
+    private String visitorUid;
+
     private final LocalDateTime createdAt = LocalDateTime.now();
     private volatile LocalDateTime finishedAt;
 

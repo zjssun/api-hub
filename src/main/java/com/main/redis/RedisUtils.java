@@ -144,6 +144,10 @@ public class RedisUtils<V> {
         }
     }
 
+    public Long incrementBy(String key, long delta) {
+        return redisTemplate.opsForValue().increment(key, delta);
+    }
+
     public Long increment(String key) {
         Long count = redisTemplate.opsForValue().increment(key, 1);
         return count;

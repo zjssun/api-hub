@@ -16,4 +16,10 @@ public class Comment implements Serializable {
     private String content;
     private String ip;
     private LocalDateTime createdAt;
+
+    /** 父评论 id，0 = 顶层评论，>0 = 回复（仅支持一级） */
+    private Long parentId;
+
+    /** 回复列表（非数据库字段，仅查询组装用） */
+    private java.util.List<Comment> replies;
 }

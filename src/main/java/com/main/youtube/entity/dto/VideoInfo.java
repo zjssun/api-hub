@@ -24,6 +24,9 @@ public class VideoInfo {
 
     private String description;
 
+    /** yt-dlp extractor_key，如 Youtube / Twitter / BiliBili */
+    private String platform;
+
     /** 后端代理封面，小程序直接可用：/api/youtube/thumbnail/{videoId} */
     private String thumbnailProxyUrl;
 

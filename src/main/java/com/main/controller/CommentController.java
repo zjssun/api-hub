@@ -14,9 +14,11 @@ import java.util.Map;
 public class CommentController extends ABaseController {
 
     private final CommentService commentService;
+    private final com.main.service.AuthService authService;
 
-    public CommentController(CommentService commentService) {
+    public CommentController(CommentService commentService, com.main.service.AuthService authService) {
         this.commentService = commentService;
+        this.authService = authService;
     }
 
     /** 最新留言列表 */
@@ -25,18 +27,30 @@ public class CommentController extends ABaseController {
         return getSuccessResponseVO(commentService.list(limit));
     }
 
-    /** 发表评论：body {nickname, avatar, content}，作者身份取 X-Visitor-Id 头 */
+    /** 发表评论：需登录（X-Auth-Token），作者身份记为账号 id */
     @PostMapping
     public ResponseVO add(@RequestBody Map<String, String> body, HttpServletRequest request) {
-        String uid = request.getHeader("X-Visitor-Id");
-        if (!StringUtils.hasText(uid)) {
-            throw new BusinessException("访客标识缺失");
+        Long userId = authService.resolveToken(request.getHeader("X-Auth-Token"));
+        if (userId == null) {
+            throw new BusinessException("请先登录后发表评论");
         }
+        String uid = "u" + userId;
+        Long parentId = null;
+        try {
+            String pid = body.get("parentId");
+            if (StringUtils.hasText(pid)) {
+                parentId = Long.parseLong(pid.trim());
+            }
+        } catch (NumberFormatException e) {
+            throw new BusinessException("parentId 不合法");
+        }
+
         var comment = commentService.add(
                 uid.trim(),
                 body.get("nickname"),
                 body.get("avatar"),
                 body.get("content"),
+                parentId,
                 clientIp(request)
         );
         return getSuccessResponseVO(comment);

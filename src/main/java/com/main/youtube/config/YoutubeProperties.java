@@ -21,6 +21,9 @@ public class YoutubeProperties {
     /** YouTube cookies 文件（Netscape 格式），为空则匿名解析 */
     private String cookiesFile = "";
 
+    /** 代理地址，如 127.0.0.1:7890 或 http://127.0.0.1:7890；为空直连 */
+    private String proxy = "";
+
     /** 接口鉴权 Key，请求头 X-Api-Key；为空则不校验（仅开发用） */
     private String apiKey = "";
 

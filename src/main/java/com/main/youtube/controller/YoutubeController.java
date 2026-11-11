@@ -3,6 +3,7 @@ package com.main.youtube.controller;
 import com.main.controller.ABaseController;
 import com.main.entity.vo.ResponseVO;
 import com.main.exception.BusinessException;
+import com.main.service.AuthService;
 import com.main.youtube.entity.dto.DownloadRequest;
 import com.main.youtube.entity.dto.ResolveRequest;
 import com.main.youtube.service.DownloadService;
@@ -34,15 +35,29 @@ public class YoutubeController extends ABaseController {
 
     private final YtDlpService ytDlpService;
     private final DownloadService downloadService;
+    private final AuthService authService;
 
-    public YoutubeController(YtDlpService ytDlpService, DownloadService downloadService) {
+    /** 服务总开关：service.closed=true 时解析/下载通道关闭 */
+    @org.springframework.beans.factory.annotation.Value("${service.closed:false}")
+    private boolean serviceClosed;
+
+    public YoutubeController(YtDlpService ytDlpService, DownloadService downloadService,
+                             AuthService authService) {
         this.ytDlpService = ytDlpService;
         this.downloadService = downloadService;
+        this.authService = authService;
+    }
+
+    private void checkServiceOpen() {
+        if (serviceClosed) {
+            throw new BusinessException("服务器流量已用完，请稍后再试");
+        }
     }
 
     /** 解析视频信息（标题/时长/封面/可用格式） */
     @PostMapping("/resolve")
     public ResponseVO resolve(@RequestBody ResolveRequest request) {
+        checkServiceOpen();
         return getSuccessResponseVO(ytDlpService.resolve(request.getQuery()));
     }
 
@@ -64,10 +79,30 @@ public class YoutubeController extends ABaseController {
                 .body(image);
     }
 
+    /**
+     * 通用封面代理：仅放行后端白名单域名（ytimg/twimg/hdslb 等），供小程序 image 直接展示。
+     */
+    @GetMapping("/thumbnail")
+    public ResponseEntity<byte[]> thumbnailByUrl(@RequestParam String url) {
+        YtDlpService.Thumbnail thumb = ytDlpService.fetchThumbnailByUrl(url);
+        if (thumb == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(thumb.contentType()))
+                .cacheControl(org.springframework.http.CacheControl.maxAge(
+                        java.time.Duration.ofDays(7)).cachePublic())
+                .body(thumb.data());
+    }
+
     /** 创建下载任务，返回 jobId 供轮询 */
     @PostMapping("/download")
-    public ResponseVO download(@RequestBody DownloadRequest request) {
-        return getSuccessResponseVO(downloadService.submit(request));
+    public ResponseVO download(@RequestBody DownloadRequest request,
+                               jakarta.servlet.http.HttpServletRequest httpRequest) {
+        checkServiceOpen();
+        Long userId = authService.resolveToken(httpRequest.getHeader("X-Auth-Token"));
+        String visitorUid = httpRequest.getHeader("X-Visitor-Id");
+        return getSuccessResponseVO(downloadService.submit(request, userId, visitorUid));
     }
 
     /** 任务列表（按创建时间倒序） */
@@ -138,6 +173,9 @@ public class YoutubeController extends ABaseController {
         }
         if (lower.endsWith(".mp3")) {
             return MediaType.parseMediaType("audio/mpeg");
+        }
+        if (lower.endsWith(".gif")) {
+            return MediaType.IMAGE_GIF;
         }
         if (lower.endsWith(".opus") || lower.endsWith(".ogg")) {
             return MediaType.parseMediaType("audio/ogg");

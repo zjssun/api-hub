@@ -34,6 +34,13 @@ public class YtDlpCommandBuilder {
             cmd.add(cookiesFile);
         }
 
+        String proxy = properties.getProxy();
+        if (StringUtils.hasText(proxy)) {
+            cmd.add("--proxy");
+            // yt-dlp 需要带 scheme 的形式
+            cmd.add(proxy.contains("://") ? proxy : "http://" + proxy);
+        }
+
         cmd.add("--no-playlist");
         cmd.add("--no-warnings");
         return cmd;

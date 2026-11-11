@@ -23,6 +23,9 @@ public class DownloadRequest {
     /** 只下载音频（配合 audioFormat 转码） */
     private Boolean audioOnly;
 
+    /** 下载完成后将视频转码为 .gif（用于 X/Twitter 等 GIF 内容提取） */
+    private Boolean gif;
+
     /** 音频转码格式：mp3/m4a/opus，默认取配置 */
     private String audioFormat;
 
@@ -35,4 +38,7 @@ public class DownloadRequest {
 
     /** 自定义文件名（不含扩展名），为空用 标题 [id] */
     private String fileName;
+
+    /** 服务端按当日剩余配额注入的大小上限（字节），客户端不可控 */
+    private Long maxFilesizeBytes;
 }
