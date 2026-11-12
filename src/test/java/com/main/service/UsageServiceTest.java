@@ -16,7 +16,7 @@ class UsageServiceTest {
     void adminQuotaAppliesToBothUsageAndDownloadsEvenWithACustomQuota() {
         RedisUtils<Long> redis = mock();
         UserMapper users = mock();
-        UsageService service = new UsageService(redis, users, 100, 3072);
+        UsageService service = new UsageService(redis, users, 100, 3072, 30720);
         long mb = 1024L * 1024;
         User account = new User();
         when(users.findById(7L)).thenReturn(account);
@@ -36,7 +36,7 @@ class UsageServiceTest {
     @Test
     void usageAndCountdownAdvanceTogetherAtServerMidnight() {
         RedisUtils<Long> redis = mock();
-        UsageService service = new UsageService(redis, mock(UserMapper.class), 100, 3072);
+        UsageService service = new UsageService(redis, mock(UserMapper.class), 100, 3072, 30720);
         ZoneId zone = ZoneId.of("Asia/Shanghai");
         var before = ZonedDateTime.of(2026, 11, 11, 23, 59, 59, 0, zone);
         var midnight = before.plusSeconds(1);
