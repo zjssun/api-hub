@@ -21,7 +21,6 @@ import java.util.Map;
 public class UsageService {
 
     private static final long MB = 1024L * 1024L;
-    private static final long ADMIN_DAILY_BYTES = 30L * 1024 * MB;
     /** 注意：RedisUtils.expire 的 time 单位是毫秒（项目既有约定） */
     private static final long QUOTA_KEY_TTL_MS = 48L * 3600 * 1000;
 
@@ -29,15 +28,18 @@ public class UsageService {
     private final UserMapper userMapper;
     private final long anonymousQuotaBytes;
     private final long freeQuotaBytes;
+    private final long adminQuotaBytes;
 
     public UsageService(RedisUtils<Long> redisUtils,
                         UserMapper userMapper,
                         @Value("${quota.anonymous-mb:100}") long anonymousMb,
-                        @Value("${quota.free-mb:3072}") long freeMb) {
+                        @Value("${quota.free-mb:3072}") long freeMb,
+                        @Value("${quota.admin-mb:30720}") long adminMb) {
         this.redisUtils = redisUtils;
         this.userMapper = userMapper;
         this.anonymousQuotaBytes = anonymousMb * MB;
         this.freeQuotaBytes = freeMb * MB;
+        this.adminQuotaBytes = adminMb * MB;
     }
 
     /** 身份主体 key：登录用户 u:{userId}，游客 v:{visitorUid} */
@@ -51,18 +53,22 @@ public class UsageService {
         return dailyQuota(userId == null ? null : userMapper.findById(userId));
     }
 
+    /** 总额度 = 基础额度（管理员 > 个人覆盖 > 档位）+ 加用量（extra_quota_mb） */
     private long dailyQuota(User user) {
         if (user == null) {
             return anonymousQuotaBytes;
         }
+        long base;
         if (user.isAdmin()) {
-            return ADMIN_DAILY_BYTES;
+            base = adminQuotaBytes;
+        } else if (user.getCustomQuotaMb() != null && user.getCustomQuotaMb() > 0) {
+            base = user.getCustomQuotaMb() * MB;
+        } else {
+            // 档位映射：后续 pro 等档位在此扩展
+            base = freeQuotaBytes;
         }
-        if (user.getCustomQuotaMb() != null && user.getCustomQuotaMb() > 0) {
-            return user.getCustomQuotaMb() * MB;
-        }
-        // 档位映射：后续 pro 等档位在此扩展
-        return freeQuotaBytes;
+        Long extra = user.getExtraQuotaMb();
+        return base + (extra != null && extra > 0 ? extra * MB : 0);
     }
 
     public long usedBytes(Long userId, String visitorUid) {

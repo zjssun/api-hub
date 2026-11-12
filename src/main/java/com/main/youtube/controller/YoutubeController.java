@@ -6,6 +6,7 @@ import com.main.exception.BusinessException;
 import com.main.service.AuthService;
 import com.main.youtube.entity.dto.DownloadRequest;
 import com.main.youtube.entity.dto.ResolveRequest;
+import com.main.youtube.entity.dto.VideoInfo;
 import com.main.youtube.service.DownloadService;
 import com.main.youtube.service.YtDlpService;
 import org.slf4j.Logger;
@@ -36,16 +37,18 @@ public class YoutubeController extends ABaseController {
     private final YtDlpService ytDlpService;
     private final DownloadService downloadService;
     private final AuthService authService;
+    private final com.main.service.ParseHistoryService historyService;
 
     /** 服务总开关：service.closed=true 时解析/下载通道关闭 */
     @org.springframework.beans.factory.annotation.Value("${service.closed:false}")
     private boolean serviceClosed;
 
     public YoutubeController(YtDlpService ytDlpService, DownloadService downloadService,
-                             AuthService authService) {
+                             AuthService authService, com.main.service.ParseHistoryService historyService) {
         this.ytDlpService = ytDlpService;
         this.downloadService = downloadService;
         this.authService = authService;
+        this.historyService = historyService;
     }
 
     private void checkServiceOpen() {
@@ -54,11 +57,15 @@ public class YoutubeController extends ABaseController {
         }
     }
 
-    /** 解析视频信息（标题/时长/封面/可用格式） */
+    /** 解析视频信息（标题/时长/封面/可用格式），成功后录入解析历史 */
     @PostMapping("/resolve")
-    public ResponseVO resolve(@RequestBody ResolveRequest request) {
+    public ResponseVO resolve(@RequestBody ResolveRequest request,
+                              jakarta.servlet.http.HttpServletRequest httpRequest) {
         checkServiceOpen();
-        return getSuccessResponseVO(ytDlpService.resolve(request.getQuery()));
+        VideoInfo info = ytDlpService.resolve(request.getQuery());
+        Long userId = authService.resolveToken(httpRequest.getHeader("X-Auth-Token"));
+        historyService.record(ParseHistoryService.subject(userId, httpRequest.getHeader("X-Visitor-Id")), info);
+        return getSuccessResponseVO(info);
     }
 
     /**

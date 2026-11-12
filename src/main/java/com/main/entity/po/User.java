@@ -23,5 +23,8 @@ public class User implements Serializable {
     /** 个性化额度预留（MB），非空优先于档位额度 */
     private Long customQuotaMb;
 
+    /** 加用量（MB）：在基础额度之上累加，用于运营/付费加量 */
+    private Long extraQuotaMb;
+
     private LocalDateTime createdAt;
 }

@@ -15,11 +15,13 @@ public interface UserMapper {
     int insert(User user);
 
     @Select("SELECT id, email, nickname, password_hash AS passwordHash, avatar, plan, " +
-            "is_admin AS admin, custom_quota_mb AS customQuotaMb, created_at AS createdAt FROM users WHERE email = #{email}")
+            "is_admin AS admin, custom_quota_mb AS customQuotaMb, extra_quota_mb AS extraQuotaMb, " +
+            "created_at AS createdAt FROM users WHERE email = #{email}")
     User findByEmail(@Param("email") String email);
 
     @Select("SELECT id, email, nickname, password_hash AS passwordHash, avatar, plan, " +
-            "is_admin AS admin, custom_quota_mb AS customQuotaMb, created_at AS createdAt FROM users WHERE id = #{id}")
+            "is_admin AS admin, custom_quota_mb AS customQuotaMb, extra_quota_mb AS extraQuotaMb, " +
+            "created_at AS createdAt FROM users WHERE id = #{id}")
     User findById(@Param("id") long id);
 
     @Update("UPDATE users SET password_hash = #{passwordHash} WHERE id = #{id}")
