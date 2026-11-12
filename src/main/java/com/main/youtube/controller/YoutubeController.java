@@ -4,6 +4,7 @@ import com.main.controller.ABaseController;
 import com.main.entity.vo.ResponseVO;
 import com.main.exception.BusinessException;
 import com.main.service.AuthService;
+import com.main.service.ParseHistoryService;
 import com.main.youtube.entity.dto.DownloadRequest;
 import com.main.youtube.entity.dto.ResolveRequest;
 import com.main.youtube.entity.dto.VideoInfo;
