@@ -24,7 +24,8 @@ public class UsageController extends ABaseController {
         Long userId = authService.resolveToken(request.getHeader("X-Auth-Token"));
         String visitorUid = request.getHeader("X-Visitor-Id");
         var info = usageService.usageInfo(userId, visitorUid);
-        info.put("closed", serviceClosed);
+        // 管理员不受总开关影响，前端按正常用量展示
+        info.put("closed", serviceClosed && !authService.isAdmin(userId));
         return getSuccessResponseVO(info);
     }
 

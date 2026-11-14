@@ -176,6 +176,15 @@ public class AuthService {
         return userMapper.findById(userId);
     }
 
+    /** 是否管理员（is_admin=1）：豁免 service.closed 总开关等场景使用 */
+    public boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        User user = findUser(userId);
+        return user != null && user.isAdmin();
+    }
+
     public Map<String, Object> updateNickname(String token, String nickname) {
         Long userId = resolveToken(token);
         if (userId == null) {

@@ -40,7 +40,7 @@ public class YoutubeController extends ABaseController {
     private final AuthService authService;
     private final com.main.service.ParseHistoryService historyService;
 
-    /** 服务总开关：service.closed=true 时解析/下载通道关闭 */
+    /** 服务总开关：service.closed=true 时解析/下载通道关闭（管理员除外） */
     @org.springframework.beans.factory.annotation.Value("${service.closed:false}")
     private boolean serviceClosed;
 
@@ -52,8 +52,9 @@ public class YoutubeController extends ABaseController {
         this.historyService = historyService;
     }
 
-    private void checkServiceOpen() {
-        if (serviceClosed) {
+    /** 服务关闭时仅管理员放行 */
+    private void checkServiceOpen(Long userId) {
+        if (serviceClosed && !authService.isAdmin(userId)) {
             throw new BusinessException("服务器流量已用完，请稍后再试");
         }
     }
@@ -62,9 +63,9 @@ public class YoutubeController extends ABaseController {
     @PostMapping("/resolve")
     public ResponseVO resolve(@RequestBody ResolveRequest request,
                               jakarta.servlet.http.HttpServletRequest httpRequest) {
-        checkServiceOpen();
-        VideoInfo info = ytDlpService.resolve(request.getQuery());
         Long userId = authService.resolveToken(httpRequest.getHeader("X-Auth-Token"));
+        checkServiceOpen(userId);
+        VideoInfo info = ytDlpService.resolve(request.getQuery());
         historyService.record(ParseHistoryService.subject(userId, httpRequest.getHeader("X-Visitor-Id")), info);
         return getSuccessResponseVO(info);
     }
@@ -107,8 +108,8 @@ public class YoutubeController extends ABaseController {
     @PostMapping("/download")
     public ResponseVO download(@RequestBody DownloadRequest request,
                                jakarta.servlet.http.HttpServletRequest httpRequest) {
-        checkServiceOpen();
         Long userId = authService.resolveToken(httpRequest.getHeader("X-Auth-Token"));
+        checkServiceOpen(userId);
         String visitorUid = httpRequest.getHeader("X-Visitor-Id");
         return getSuccessResponseVO(downloadService.submit(request, userId, visitorUid));
     }
