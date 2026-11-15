@@ -136,12 +136,12 @@
 			<version>0.29.5</version>
 		</dependency>
 
-		<!-- 邮箱验证码发信 -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-
+		<!-- 阿里云短信服务（Dysmsapi）验证码 -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>alibabacloud-dysmsapi20170525</artifactId>
+            <version>4.0.11</version>
+        </dependency>
 		<!-- 密码散列（仅 BCrypt，不引入 Web 安全链） -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>

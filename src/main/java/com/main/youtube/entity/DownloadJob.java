@@ -32,6 +32,9 @@ public class DownloadJob {
     private Long userId;
     private String visitorUid;
 
+    /** 产物缓存键（url+有效参数的摘要），完成后产物迁入 downloads/_cache/{cacheKey}/ */
+    private String cacheKey;
+
     private final LocalDateTime createdAt = LocalDateTime.now();
     private volatile LocalDateTime finishedAt;
 

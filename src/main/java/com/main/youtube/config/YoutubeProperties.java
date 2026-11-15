@@ -47,4 +47,10 @@ public class YoutubeProperties {
 
     /** 默认纯音频格式 */
     private String audioFormat = "mp3";
+
+    /** 下载产物缓存：相同链接+参数复用已下文件（命中仍计当日配额） */
+    private boolean cacheEnabled = true;
+
+    /** 缓存目录总量上限（MB），超限按最旧先删 */
+    private long cacheMaxMb = 20 * 1024;
 }

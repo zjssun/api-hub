@@ -1,6 +1,9 @@
 package com.main.youtube.service;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.main.exception.BusinessException;
+import com.main.redis.RedisUtils;
 import com.main.service.UsageService;
 import com.main.youtube.config.YoutubeProperties;
 import com.main.youtube.entity.DownloadJob;
@@ -17,7 +20,10 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,19 +63,25 @@ public class DownloadService {
     private final YtDlpService ytDlpService;
     private final ProcessRunner processRunner;
     private final UsageService usageService;
+    private final RedisUtils<String> redisUtils;
 
     private final Map<String, DownloadJob> jobs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Semaphore concurrencyLimit;
 
+    /** 共享产物缓存目录名与索引 key 前缀 */
+    private static final String CACHE_DIR_NAME = "_cache";
+    private static final String CACHE_INDEX_PREFIX = "dlcache:";
+
     public DownloadService(YoutubeProperties properties, YtDlpCommandBuilder commandBuilder,
                            YtDlpService ytDlpService, ProcessRunner processRunner,
-                           UsageService usageService) {
+                           UsageService usageService, RedisUtils<String> redisUtils) {
         this.properties = properties;
         this.commandBuilder = commandBuilder;
         this.ytDlpService = ytDlpService;
         this.processRunner = processRunner;
         this.usageService = usageService;
+        this.redisUtils = redisUtils;
         this.concurrencyLimit = new Semaphore(Math.max(1, properties.getMaxConcurrent()));
     }
 
@@ -79,9 +91,17 @@ public class DownloadService {
         if (remaining <= 0) {
             throw new BusinessException("今日用量已用完");
         }
-        request.setMaxFilesizeBytes(remaining);
 
         String url = ytDlpService.normalizeUrl(request.getUrl());
+        String cacheKey = computeCacheKey(request, url);
+
+        // 产物缓存命中：直接返回已完成任务（命中仍计当日配额）
+        JobInfo hit = tryCacheHit(cacheKey, userId, visitorUid, remaining);
+        if (hit != null) {
+            return hit;
+        }
+
+        request.setMaxFilesizeBytes(remaining);
         String jobId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
         // 参数校验失败直接抛异常，不注册任务
@@ -91,6 +111,7 @@ public class DownloadService {
         job.setJobId(jobId);
         job.setUserId(userId);
         job.setVisitorUid(visitorUid);
+        job.setCacheKey(cacheKey);
         jobs.put(jobId, job);
         executor.submit(() -> runJob(job, command, request));
 
@@ -169,6 +190,7 @@ public class DownloadService {
                 }
                 // 完成才计当日用量（按实际文件大小）
                 if (job.getFilePath() != null && Files.exists(job.getFilePath())) {
+                    moveToCache(job);
                     usageService.charge(job.getUserId(), job.getVisitorUid(), Files.size(job.getFilePath()));
                 }
                 job.setStatus(JobStatus.FINISHED);
@@ -365,6 +387,122 @@ public class DownloadService {
         return Path.of(properties.getOutputDir()).resolve(jobId);
     }
 
+    /* ---------- 产物缓存 ---------- */
+
+    private Path cacheDir(String cacheKey) {
+        return Path.of(properties.getOutputDir()).resolve(CACHE_DIR_NAME).resolve(cacheKey);
+    }
+
+    /**
+     * 缓存键：规范化 URL + 决定产物字节的全部参数（选择器已归一化）。
+     * fileName 只影响文件名不影响内容，maxFilesizeBytes 是配额闸，均不参与。
+     */
+    private String computeCacheKey(DownloadRequest request, String normalizedUrl) {
+        StringBuilder sb = new StringBuilder(normalizedUrl);
+        if (Boolean.TRUE.equals(request.getAudioOnly())) {
+            String audioFormat = StringUtils.hasText(request.getAudioFormat())
+                    ? request.getAudioFormat().toLowerCase() : properties.getAudioFormat();
+            String selector = StringUtils.hasText(request.getFormatSelector())
+                    ? request.getFormatSelector() : "ba/b";
+            sb.append("|ao=1|f=").append(selector).append("|af=").append(audioFormat);
+        } else {
+            String container = StringUtils.hasText(request.getContainer())
+                    ? request.getContainer().toLowerCase() : "mp4";
+            sb.append("|f=").append(resolveFormatSelector(request))
+                    .append("|c=").append(container)
+                    .append("|gif=").append(Boolean.TRUE.equals(request.getGif()) ? 1 : 0)
+                    .append("|subs=").append(Boolean.TRUE.equals(request.getEmbedSubs()) ? 1 : 0);
+        }
+        sb.append("|meta=").append(Boolean.FALSE.equals(request.getEmbedMetadata()) ? 0 : 1)
+                .append("|thumb=").append(Boolean.FALSE.equals(request.getEmbedThumbnail()) ? 0 : 1);
+        return sha256Hex(sb.toString()).substring(0, 24);
+    }
+
+    /** 缓存命中则构造即时完成态任务并计费返回；未命中返回 null（含索引脏/文件缺失的自愈清理） */
+    private JobInfo tryCacheHit(String cacheKey, Long userId, String visitorUid, long remaining) {
+        if (!properties.isCacheEnabled()) {
+            return null;
+        }
+        String indexKey = CACHE_INDEX_PREFIX + cacheKey;
+        JSONObject entry;
+        try {
+            String raw = redisUtils.get(indexKey);
+            if (!StringUtils.hasText(raw)) {
+                return null;
+            }
+            entry = JSON.parseObject(raw);
+        } catch (Exception e) {
+            logger.warn("下载缓存索引读取失败 key={}: {}", indexKey, e.getMessage());
+            return null;
+        }
+        String fileName = entry.getString("fileName");
+        Long sizeBytes = entry.getLong("sizeBytes");
+        Path file = StringUtils.hasText(fileName) ? cacheDir(cacheKey).resolve(fileName) : null;
+        if (file == null || sizeBytes == null || sizeBytes <= 0 || !Files.exists(file)) {
+            // 文件被清理（过期/手动删）：索引自愈，回退正常下载
+            redisUtils.delete(indexKey);
+            return null;
+        }
+        if (sizeBytes > remaining) {
+            throw new BusinessException("今日剩余额度不足（该文件需约 " + (sizeBytes / 1048576 + 1) + " MB）");
+        }
+
+        // 命中照常计当日配额
+        usageService.charge(userId, visitorUid, sizeBytes);
+
+        DownloadJob job = new DownloadJob();
+        job.setJobId(UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+        job.setUserId(userId);
+        job.setVisitorUid(visitorUid);
+        job.setStatus(JobStatus.FINISHED);
+        job.setPercentHint(100.0);
+        job.setFilePath(file);
+        job.setDownloadedBytes(sizeBytes);
+        job.setTotalBytes(sizeBytes);
+        job.setFinishedAt(LocalDateTime.now());
+        jobs.put(job.getJobId(), job);
+        logger.info("下载缓存命中 jobId={} file={} sizeBytes={}", job.getJobId(), file, sizeBytes);
+        return job.toInfo();
+    }
+
+    /** 产物迁入共享缓存目录并写索引；迁移失败保留 jobDir 原文件，不影响本次取件 */
+    private void moveToCache(DownloadJob job) {
+        if (!properties.isCacheEnabled() || !StringUtils.hasText(job.getCacheKey())) {
+            return;
+        }
+        try {
+            Path src = job.getFilePath();
+            Path dir = cacheDir(job.getCacheKey());
+            Files.createDirectories(dir);
+            Path dest = dir.resolve(src.getFileName().toString());
+            Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING);
+            job.setFilePath(dest);
+
+            JSONObject entry = new JSONObject();
+            entry.put("fileName", dest.getFileName().toString());
+            entry.put("sizeBytes", Files.size(dest));
+            entry.put("createdAtMs", System.currentTimeMillis());
+            redisUtils.setex(CACHE_INDEX_PREFIX + job.getCacheKey(), entry.toJSONString(),
+                    properties.getRetentionHours() * 3600_000L);
+        } catch (Exception e) {
+            logger.warn("写入下载缓存失败 jobId={}: {}", job.getJobId(), e.getMessage());
+        }
+    }
+
+    private static String sha256Hex(String text) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(text.hashCode());
+        }
+    }
+
     private DownloadJob requireJob(String jobId) {
         DownloadJob job = jobs.get(jobId);
         if (job == null) {
@@ -447,7 +585,7 @@ public class DownloadService {
         try (Stream<Path> stream = Files.list(baseDir)) {
             for (Path dir : stream.filter(Files::isDirectory).toList()) {
                 String name = dir.getFileName().toString();
-                if ("_thumbs".equals(name)) {
+                if ("_thumbs".equals(name) || CACHE_DIR_NAME.equals(name)) {
                     continue;
                 }
                 boolean known = jobs.containsKey(name);
@@ -462,8 +600,68 @@ public class DownloadService {
             logger.warn("清理过期下载目录失败: {}", e.getMessage());
         }
 
+        // 共享产物缓存：按龄期过期 + 总量上限兜底
+        removed += sweepCacheDir();
+
         if (removed > 0) {
-            logger.info("清理了 {} 个过期下载任务目录", removed);
+            logger.info("清理了 {} 个过期下载任务目录/缓存", removed);
+        }
+    }
+
+    /** _cache/* 清扫：超过保留期的删除，总量超 cache-max-mb 时按最旧先删；返回删除数 */
+    private int sweepCacheDir() {
+        Path cacheRoot = Path.of(properties.getOutputDir()).resolve(CACHE_DIR_NAME);
+        if (!Files.isDirectory(cacheRoot)) {
+            return 0;
+        }
+        Instant expireBefore = Instant.now().minus(Duration.ofHours(properties.getRetentionHours()));
+        long maxBytes = properties.getCacheMaxMb() * 1024L * 1024L;
+        int removed = 0;
+        try (Stream<Path> stream = Files.list(cacheRoot)) {
+            // 按最旧优先排序，先过期清理再按总量上限逐出
+            List<Path> dirs = stream.filter(Files::isDirectory)
+                    .sorted(Comparator.comparing(this::dirModifiedMs))
+                    .toList();
+            long totalBytes = 0;
+            for (Path d : dirs) {
+                totalBytes += dirSizeBytes(d);
+            }
+            for (Path d : dirs) {
+                boolean expired = dirModifiedMs(d) < expireBefore.toEpochMilli();
+                boolean overCap = totalBytes > maxBytes;
+                if (!expired && !overCap) {
+                    continue;
+                }
+                redisUtils.delete(CACHE_INDEX_PREFIX + d.getFileName().toString());
+                totalBytes -= dirSizeBytes(d);
+                deleteQuietly(d);
+                removed++;
+            }
+        } catch (Exception e) {
+            logger.warn("清理下载缓存失败: {}", e.getMessage());
+        }
+        return removed;
+    }
+
+    private long dirModifiedMs(Path dir) {
+        try {
+            return Files.getLastModifiedTime(dir).toMillis();
+        } catch (IOException e) {
+            return 0;
+        }
+    }
+
+    private long dirSizeBytes(Path dir) {
+        try (Stream<Path> stream = Files.walk(dir)) {
+            return stream.filter(Files::isRegularFile).mapToLong(p -> {
+                try {
+                    return Files.size(p);
+                } catch (IOException e) {
+                    return 0;
+                }
+            }).sum();
+        } catch (IOException e) {
+            return 0;
         }
     }
 

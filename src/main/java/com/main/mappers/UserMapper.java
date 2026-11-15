@@ -9,17 +9,17 @@ import org.apache.ibatis.annotations.Update;
 
 public interface UserMapper {
 
-    @Insert("INSERT INTO users (email, nickname, password_hash, avatar, plan, custom_quota_mb, created_at) " +
-            "VALUES (#{email}, #{nickname}, #{passwordHash}, #{avatar}, #{plan}, #{customQuotaMb}, #{createdAt})")
+    @Insert("INSERT INTO users (phone, nickname, password_hash, avatar, plan, custom_quota_mb, created_at) " +
+            "VALUES (#{phone}, #{nickname}, #{passwordHash}, #{avatar}, #{plan}, #{customQuotaMb}, #{createdAt})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(User user);
 
-    @Select("SELECT id, email, nickname, password_hash AS passwordHash, avatar, plan, " +
+    @Select("SELECT id, phone, nickname, password_hash AS passwordHash, avatar, plan, " +
             "is_admin AS admin, custom_quota_mb AS customQuotaMb, extra_quota_mb AS extraQuotaMb, " +
-            "created_at AS createdAt FROM users WHERE email = #{email}")
-    User findByEmail(@Param("email") String email);
+            "created_at AS createdAt FROM users WHERE phone = #{phone}")
+    User findByPhone(@Param("phone") String phone);
 
-    @Select("SELECT id, email, nickname, password_hash AS passwordHash, avatar, plan, " +
+    @Select("SELECT id, phone, nickname, password_hash AS passwordHash, avatar, plan, " +
             "is_admin AS admin, custom_quota_mb AS customQuotaMb, extra_quota_mb AS extraQuotaMb, " +
             "created_at AS createdAt FROM users WHERE id = #{id}")
     User findById(@Param("id") long id);

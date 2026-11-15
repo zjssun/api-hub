@@ -23,37 +23,37 @@ public class AuthController extends ABaseController {
         this.usageService = usageService;
     }
 
-    /** 发送注册验证码 */
+    /** 发送注册验证码（短信） */
     @PostMapping("/register-code")
     public ResponseVO registerCode(@RequestBody Map<String, String> body) {
-        authService.sendRegisterCode(body.get("email"), body.get("nickname"));
+        authService.sendRegisterCode(body.get("phone"), body.get("nickname"));
         return getSuccessResponseVO(null);
     }
 
-    /** 注册：email + nickname + password + code → token + user */
+    /** 注册：phone + nickname + password + code → token + user */
     @PostMapping("/register")
     public ResponseVO register(@RequestBody Map<String, String> body) {
         return getSuccessResponseVO(authService.register(
-                body.get("email"), body.get("nickname"), body.get("password"), body.get("code")));
+                body.get("phone"), body.get("nickname"), body.get("password"), body.get("code")));
     }
 
-    /** 登录：email + password → token + user */
+    /** 登录：phone + password → token + user */
     @PostMapping("/login")
     public ResponseVO login(@RequestBody Map<String, String> body) {
-        return getSuccessResponseVO(authService.login(body.get("email"), body.get("password")));
+        return getSuccessResponseVO(authService.login(body.get("phone"), body.get("password")));
     }
 
-    /** 发送重置密码验证码 */
+    /** 发送重置密码验证码（短信） */
     @PostMapping("/forgot-code")
     public ResponseVO forgotCode(@RequestBody Map<String, String> body) {
-        authService.sendResetCode(body.get("email"));
+        authService.sendResetCode(body.get("phone"));
         return getSuccessResponseVO(null);
     }
 
-    /** 重置密码：email + code + password */
+    /** 重置密码：phone + code + password */
     @PostMapping("/reset-password")
     public ResponseVO resetPassword(@RequestBody Map<String, String> body) {
-        authService.resetPassword(body.get("email"), body.get("code"), body.get("password"));
+        authService.resetPassword(body.get("phone"), body.get("code"), body.get("password"));
         return getSuccessResponseVO(null);
     }
 
@@ -70,7 +70,7 @@ public class AuthController extends ABaseController {
         }
         Map<String, Object> data = new HashMap<>();
         data.put("id", user.getId());
-        data.put("email", user.getEmail());
+        data.put("phone", user.getPhone());
         data.put("nickname", user.getNickname());
         data.put("avatar", user.getAvatar());
         data.put("plan", StringUtils.hasText(user.getPlan()) ? user.getPlan() : "free");

@@ -7,13 +7,10 @@ import com.main.mappers.UserMapper;
 import com.main.redis.RedisUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,117 +22,96 @@ public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    /** 中国大陆手机号 */
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
     private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     /** 注意：RedisUtils.setex/expire 的 time 单位是毫秒（项目既有约定） */
-    private static final long CODE_TTL_MS = 300_000;
     private static final long CODE_RESEND_MS = 60_000;
     private static final long TOKEN_TTL_MS = 7L * 24 * 3600 * 1000;
 
-    private static final String KEY_REG_CODE = "vc:reg:";
-    private static final String KEY_RESET_CODE = "vc:reset:";
+    /** 重发限频（验证码本体由 PNS 生成并代管，服务端不存码） */
     private static final String KEY_RATE = "vc:rate:";
     private static final String KEY_TOKEN = "auth:token:";
 
     private final UserMapper userMapper;
     private final RedisUtils<Object> redisUtils;
-    private final JavaMailSender mailSender;
+    private final SmsService smsService;
     private final SensitiveWordBs sensitiveWordBs;
-    private final String mailFrom;
 
     public AuthService(UserMapper userMapper,
                        RedisUtils<Object> redisUtils,
-                       JavaMailSender mailSender,
-                       SensitiveWordBs sensitiveWordBs,
-                       @Value("${spring.mail.username:}") String mailFrom) {
+                       SmsService smsService,
+                       SensitiveWordBs sensitiveWordBs) {
         this.userMapper = userMapper;
         this.redisUtils = redisUtils;
-        this.mailSender = mailSender;
+        this.smsService = smsService;
         this.sensitiveWordBs = sensitiveWordBs;
-        this.mailFrom = mailFrom;
     }
 
     /* ---------- 验证码 ---------- */
 
-    /** 发送注册验证码：邮箱格式 + 未注册 + 昵称敏感词 + 60s 限频 */
-    public void sendRegisterCode(String email, String nickname) {
-        checkEmail(email);
+    /** 发送注册验证码：手机号格式 + 未注册 + 昵称敏感词 + 60s 限频 */
+    public void sendRegisterCode(String phone, String nickname) {
+        checkPhone(phone);
         checkNickname(nickname);
-        if (userMapper.findByEmail(email) != null) {
-            throw new BusinessException("该邮箱已注册，请直接登录");
+        if (userMapper.findByPhone(phone) != null) {
+            throw new BusinessException("该手机号已注册，请直接登录");
         }
-        checkRateLimit(email);
-        sendCode(email, KEY_REG_CODE, "注册验证码");
+        checkRateLimit(phone);
+        smsService.sendVerifyCode(phone);
+        redisUtils.setex(KEY_RATE + phone, "1", CODE_RESEND_MS);
     }
 
-    /** 发送重置密码验证码：邮箱须已注册 */
-    public void sendResetCode(String email) {
-        checkEmail(email);
-        if (userMapper.findByEmail(email) == null) {
-            throw new BusinessException("该邮箱未注册");
+    /** 发送重置密码验证码：手机号须已注册 */
+    public void sendResetCode(String phone) {
+        checkPhone(phone);
+        if (userMapper.findByPhone(phone) == null) {
+            throw new BusinessException("该手机号未注册");
         }
-        checkRateLimit(email);
-        sendCode(email, KEY_RESET_CODE, "重置密码验证码");
-    }
-
-    private void sendCode(String email, String keyPrefix, String purpose) {
-        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        try {
-            var mime = mailSender.createMimeMessage();
-            var helper = new org.springframework.mail.javamail.MimeMessageHelper(mime, false, "UTF-8");
-            helper.setFrom(mailFrom, "管油阿特");
-            helper.setTo(email);
-            helper.setSubject("【管油阿特】" + purpose);
-            helper.setText("您的" + purpose + "是：" + code + "，5 分钟内有效。若非本人操作请忽略本邮件。");
-            mailSender.send(mime);
-        } catch (Exception e) {
-            logger.warn("验证码邮件发送失败 {}: {}", email, e.getMessage());
-            throw new BusinessException("验证码发送失败，请稍后重试");
-        }
-        redisUtils.setex(keyPrefix + email, code, CODE_TTL_MS);
-        redisUtils.setex(KEY_RATE + email, "1", CODE_RESEND_MS);
+        checkRateLimit(phone);
+        smsService.sendVerifyCode(phone);
+        redisUtils.setex(KEY_RATE + phone, "1", CODE_RESEND_MS);
     }
 
     /* ---------- 注册 / 登录 / 重置 ---------- */
 
-    public Map<String, Object> register(String email, String nickname, String password, String code) {
-        checkEmail(email);
+    public Map<String, Object> register(String phone, String nickname, String password, String code) {
+        checkPhone(phone);
         checkNickname(nickname);
         checkPassword(password);
-        verifyCode(code, KEY_REG_CODE + email);
-        if (userMapper.findByEmail(email) != null) {
-            throw new BusinessException("该邮箱已注册，请直接登录");
+        verifyCode(phone, code);
+        if (userMapper.findByPhone(phone) != null) {
+            throw new BusinessException("该手机号已注册，请直接登录");
         }
         User user = new User();
-        user.setEmail(email);
+        user.setPhone(phone);
         user.setNickname(nickname.trim());
         user.setPasswordHash(ENCODER.encode(password));
         user.setPlan("free");
         user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
-        logger.info("新用户注册 email={}", email);
+        logger.info("新用户注册 phone={}", phone);
         return loginResult(user, issueToken(user.getId()));
     }
 
-    public Map<String, Object> login(String email, String password) {
-        checkEmail(email);
-        User user = userMapper.findByEmail(email);
+    public Map<String, Object> login(String phone, String password) {
+        checkPhone(phone);
+        User user = userMapper.findByPhone(phone);
         if (user == null || !StringUtils.hasText(password) || !ENCODER.matches(password, user.getPasswordHash())) {
-            throw new BusinessException("邮箱或密码错误");
+            throw new BusinessException("手机号或密码错误");
         }
         return loginResult(user, issueToken(user.getId()));
     }
 
-    public void resetPassword(String email, String code, String newPassword) {
-        checkEmail(email);
+    public void resetPassword(String phone, String code, String newPassword) {
+        checkPhone(phone);
         checkPassword(newPassword);
-        verifyCode(code, KEY_RESET_CODE + email);
-        User user = userMapper.findByEmail(email);
+        verifyCode(phone, code);
+        User user = userMapper.findByPhone(phone);
         if (user == null) {
-            throw new BusinessException("该邮箱未注册");
+            throw new BusinessException("该手机号未注册");
         }
         userMapper.updatePassword(user.getId(), ENCODER.encode(newPassword));
     }
@@ -201,9 +177,9 @@ public class AuthService {
 
     /* ---------- 校验 ---------- */
 
-    private void checkEmail(String email) {
-        if (!StringUtils.hasText(email) || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
-            throw new BusinessException("邮箱格式不正确");
+    private void checkPhone(String phone) {
+        if (!StringUtils.hasText(phone) || !PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            throw new BusinessException("手机号格式不正确");
         }
     }
 
@@ -222,18 +198,17 @@ public class AuthService {
         }
     }
 
-    private void checkRateLimit(String email) {
-        if (redisUtils.keyExists(KEY_RATE + email)) {
+    private void checkRateLimit(String phone) {
+        if (redisUtils.keyExists(KEY_RATE + phone)) {
             throw new BusinessException("验证码发送太频繁，请 60 秒后再试");
         }
     }
 
-    private void verifyCode(String code, String key) {
-        Object saved = redisUtils.get(key);
-        if (!StringUtils.hasText(code) || saved == null || !code.trim().equals(saved.toString())) {
+    /** 验证码核验走 PNS CheckSmsVerifyCode（PNS 代管有效期） */
+    private void verifyCode(String phone, String code) {
+        if (!smsService.checkVerifyCode(phone, code)) {
             throw new BusinessException("验证码错误或已过期");
         }
-        redisUtils.delete(key);
     }
 
     private Map<String, Object> loginResult(User user, String token) {
@@ -246,7 +221,7 @@ public class AuthService {
     private Map<String, Object> publicUser(User user) {
         Map<String, Object> u = new HashMap<>();
         u.put("id", user.getId());
-        u.put("email", user.getEmail());
+        u.put("phone", user.getPhone());
         u.put("nickname", user.getNickname());
         u.put("avatar", user.getAvatar());
         u.put("plan", StringUtils.hasText(user.getPlan()) ? user.getPlan() : "free");

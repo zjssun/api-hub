@@ -13,8 +13,9 @@ import static org.mockito.Mockito.*;
 class AuthNicknameTest {
     private final UserMapper users = mock();
     private final RedisUtils<Object> redis = mock();
+    private final SmsService sms = mock();
     private final SensitiveWordBs words = mock();
-    private final AuthService auth = new AuthService(users, redis, null, words, "");
+    private final AuthService auth = new AuthService(users, redis, sms, words);
 
     @Test void updatesOnlyTheAuthenticatedUserAndReturnsTheStoredNickname() {
         when(redis.get("auth:token:session")).thenReturn(19L);

@@ -55,6 +55,8 @@ GET samrol-express.shop/hotlist/juejin
 ## 📝 更新日志 | Changelog
 
 ### 2026-11-15
+- 下载产物缓存：相同链接+有效参数（画质选择器/容器/音频/GIF/内嵌项归一化后的 sha256）复用已下文件，产物迁入 downloads/_cache/{key}/ 共享目录、Redis 索引对齐保留期 TTL；命中返回即时 FINISHED 任务并仍按实际字节计当日配额，缓存文件过期或被手动清理后自动回退重新下载；定时清理扩展为 _cache 按龄期+总量上限（cache-max-mb，默认 20GB）清扫；youtube.cache-enabled 可整体关闭。
+- 账号体系切换为手机号 + 阿里云号码认证（PNS）短信验证码：SendSmsVerifyCode 发码（`##code##` 由 PNS 生成）、CheckSmsVerifyCode 核验（PASS 通过），服务端不再自存验证码，Redis 仅保留 60s 重发限频；登录改为手机号+密码；users.email 列改名 phone（[升级脚本](doc/sql/20261115-users-phone.sql)，旧数据可弃）；登录令牌格式不变，已登录用户不受影响；移除 spring-mail 依赖与 163 SMTP 配置，AK/SK 经环境变量注入。
 - 服务总开关 service.closed 管理员豁免：is_admin=1 的账号在通道关闭期间仍可解析/下载，/api/usage 对其返回 closed=false，前端用量卡按正常额度展示；token 过期或无效按普通用户处理仍被拦截。
 - yt-dlp 命令行加固：新增 youtube.extractor-args / YTDLP_EXTRACTOR_ARGS 配置，向所有 yt-dlp 命令透传 --extractor-args（player_client、po_token 等风控调参无需改代码）；cookies 文件改为可读性校验并输出一次性日志（启用路径 / 文件不可读告警），便于排查 cookies 未生效问题。
 - 格式选择器逐层兜底：默认 bv*+ba/b 扩为 bv*+ba/bv*/b；画质封顶档追加 bv*[height<=Q] 单流与无封顶最优兜底，修复部分视频或客户端不返回 muxed/audio-only 流时 "Requested format is not available" 的报错。
