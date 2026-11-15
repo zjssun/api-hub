@@ -54,6 +54,11 @@ GET samrol-express.shop/hotlist/juejin
 
 ## 📝 更新日志 | Changelog
 
+### 2026-11-15
+- 服务总开关 service.closed 管理员豁免：is_admin=1 的账号在通道关闭期间仍可解析/下载，/api/usage 对其返回 closed=false，前端用量卡按正常额度展示；token 过期或无效按普通用户处理仍被拦截。
+- yt-dlp 命令行加固：新增 youtube.extractor-args / YTDLP_EXTRACTOR_ARGS 配置，向所有 yt-dlp 命令透传 --extractor-args（player_client、po_token 等风控调参无需改代码）；cookies 文件改为可读性校验并输出一次性日志（启用路径 / 文件不可读告警），便于排查 cookies 未生效问题。
+- 格式选择器逐层兜底：默认 bv*+ba/b 扩为 bv*+ba/bv*/b；画质封顶档追加 bv*[height<=Q] 单流与无封顶最优兜底，修复部分视频或客户端不返回 muxed/audio-only 流时 "Requested format is not available" 的报错。
+
 ### 2026-11-12
 - 新增解析历史入库：resolve 成功后按身份主体（登录 u:{userId} / 游客 v:{visitorUid}）写入 parse_history 表（标题、平台、缩略图、画质标签、估算大小、链接），同一视频重复解析覆盖旧记录、每主体保留最新 50 条；新增 GET /api/history 供前端"最近解析"跨设备读取。
 - 配额扩展：管理员每日配额改为配置项 quota.admin-mb（默认 30GB）；users 表新增 extra_quota_mb 加用量字段，总额度 = 基础额度（管理员/个人覆盖/档位）+ 加用量，供运营与后续付费加量使用。

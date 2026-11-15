@@ -345,7 +345,10 @@ public class DownloadService {
         }
         Integer quality = request.getQuality();
         if (quality != null && quality > 0) {
-            return "bv*[height<=" + quality + "]+ba/b[height<=" + quality + "]/b";
+            // 逐层兜底：分离流按画质封顶 → 单文件按画质封顶 → 无封顶任意最优
+            // YouTube 部分视频/client 不返回 muxed 或无 audio-only 流时避免整个选择器归零
+            return "bv*[height<=" + quality + "]+ba/b[height<=" + quality
+                    + "]/bv*[height<=" + quality + "]/bv*+ba/b";
         }
         return properties.getDefaultFormatSelector();
     }

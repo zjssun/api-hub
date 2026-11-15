@@ -39,8 +39,11 @@ public class YoutubeProperties {
     /** 单个下载任务超时时间（分钟） */
     private int downloadTimeoutMinutes = 60;
 
-    /** 默认视频格式选择器 */
-    private String defaultFormatSelector = "bv*+ba/b";
+    /** 默认视频格式选择器（逐层兜底，避免单一表达式匹配不到任何格式） */
+    private String defaultFormatSelector = "bv*+ba/bv*/b";
+
+    /** yt-dlp --extractor-args（如 youtube:player_client=... / po_token 注入），留空不传 */
+    private String extractorArgs = "";
 
     /** 默认纯音频格式 */
     private String audioFormat = "mp3";
