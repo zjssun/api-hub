@@ -24,7 +24,7 @@ public class YoutubeWebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new ApiKeyInterceptor(properties))
-                .addPathPatterns("/api/**")
+                .addPathPatterns("/api/youtube/**")
                 // 封面代理对小程序 <image> 开放（image 标签无法携带请求头）；
                 // 需同时排除精确路径 /thumbnail（?url= 查询参数形式）
                 .excludePathPatterns("/api/youtube/thumbnail", "/api/youtube/thumbnail/**");

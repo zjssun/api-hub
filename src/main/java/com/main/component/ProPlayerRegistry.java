@@ -20,9 +20,11 @@ public class ProPlayerRegistry {
     private static final Logger logger = LoggerFactory.getLogger(ProPlayerRegistry.class);
 
     private final Map<String, String> nameByPlayerId;
+    private final Map<String, String> playerIdByName;
 
     public ProPlayerRegistry() {
         Map<String, String> map = new HashMap<>();
+        Map<String, String> nameToId = new HashMap<>();
         try (InputStream inputStream = new ClassPathResource("pro-players.json").getInputStream()) {
             String json = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             JSONArray players = JSON.parseArray(json);
@@ -35,6 +37,7 @@ public class ProPlayerRegistry {
                 String name = player.getString("name");
                 if (uuid != null && !uuid.isBlank() && name != null && !name.isBlank()) {
                     map.put(uuid, name);
+                    nameToId.put(name, uuid);
                 }
             }
             logger.info("已加载 {} 名职业选手注册信息", map.size());
@@ -42,6 +45,7 @@ public class ProPlayerRegistry {
             logger.error("加载 pro-players.json 失败，职业选手识别功能不可用", e);
         }
         this.nameByPlayerId = Collections.unmodifiableMap(map);
+        this.playerIdByName = Collections.unmodifiableMap(nameToId);
     }
 
     public Optional<String> displayNameOf(String playerId) {
@@ -49,5 +53,12 @@ public class ProPlayerRegistry {
             return Optional.empty();
         }
         return Optional.ofNullable(nameByPlayerId.get(playerId));
+    }
+
+    public Optional<String> playerIdOf(String displayName) {
+        if (displayName == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(playerIdByName.get(displayName));
     }
 }

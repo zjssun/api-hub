@@ -333,5 +333,31 @@
         "uuid":  "18911949-a23d-4b42-bd0b-7a970b51824c",
         "name":  "frozen",
         "avatar":  "forzen.webp"
+    },
+    {
+      "uuid":  "74df0e6b-5b41-42d7-93b4-05dc78b9a699",
+      "name":  "dem0n",
+      "avatar":  "dem0n.webp"
+    },
+    {
+      "uuid":  "d682a62e-43f5-49be-b8c9-de923adcf564",
+      "name":  "SunPayus",
+      "avatar":  "SunPayus.webp"
+    },
+    {
+      "uuid":  "1f2404e0-9dee-4820-9b1a-992a199780de",
+      "name":  "xfl0ud",
+      "avatar":  "xfl0ud.webp"
+    },
+    {
+      "uuid":  "860eb93d-a963-418c-9e2c-69d39f270eb3",
+      "name":  "Krabeni",
+      "avatar":  "Krabeni.webp"
+    },
+    {
+      "uuid":  "dc49b288-2a75-485a-91b1-ee81ce2f25de",
+      "name":  "dziugss",
+      "avatar":  "dziugss.webp"
     }
+
 ]

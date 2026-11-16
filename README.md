@@ -54,6 +54,10 @@ GET samrol-express.shop/hotlist/juejin
 
 ## 📝 更新日志 | Changelog
 
+### 2026-11-16
+- 新增选手 FACEIT 主页查询接口 `GET /api/pros/{name}/faceit-url`：按展示名从注册表反查 uuid，拼接 `https://www.faceit.com/users/{uuid}` 返回，供前端点击职业哥标签跳转主页；`ProPlayerRegistry` 增加 name→uuid 反查。
+- 修复 API Key 鉴权范围过宽：拦截器由全部 `/api/**` 收窄为 `/api/youtube/**`，解除对 /api/auth、/api/comments、/api/history、/api/usage、/api/pros 等非 youtube 接口的误拦。
+
 ### 2026-11-15
 - 下载产物缓存：相同链接+有效参数（画质选择器/容器/音频/GIF/内嵌项归一化后的 sha256）复用已下文件，产物迁入 downloads/_cache/{key}/ 共享目录、Redis 索引对齐保留期 TTL；命中返回即时 FINISHED 任务并仍按实际字节计当日配额，缓存文件过期或被手动清理后自动回退重新下载；定时清理扩展为 _cache 按龄期+总量上限（cache-max-mb，默认 20GB）清扫；youtube.cache-enabled 可整体关闭。
 - 账号体系切换为手机号 + 阿里云号码认证（PNS）短信验证码：SendSmsVerifyCode 发码（`##code##` 由 PNS 生成）、CheckSmsVerifyCode 核验（PASS 通过），服务端不再自存验证码，Redis 仅保留 60s 重发限频；登录改为手机号+密码；users.email 列改名 phone（[升级脚本](doc/sql/20261115-users-phone.sql)，旧数据可弃）；登录令牌格式不变，已登录用户不受影响；移除 spring-mail 依赖与 163 SMTP 配置，AK/SK 经环境变量注入。
