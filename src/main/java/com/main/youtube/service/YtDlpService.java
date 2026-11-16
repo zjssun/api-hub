@@ -130,24 +130,33 @@ public class YtDlpService {
             throw new BusinessException("yt-dlp 输出解析失败", e);
         }
 
+        // 多视频/播放列表链接：取第一个条目展示，条目缺字段回退根节点；entryCount 告知前端总条数
+        JsonNode node = root;
+        Integer entryCount = null;
         if (root.has("_type") && !"video".equals(root.get("_type").asText())) {
-            throw new BusinessException("该链接不是单个视频（当前仅支持视频解析）");
+            JsonNode entries = root.path("entries");
+            if (!entries.isArray() || entries.isEmpty()) {
+                throw new BusinessException("该链接不是单个视频（当前仅支持视频解析）");
+            }
+            node = entries.get(0);
+            entryCount = entries.size();
         }
 
         VideoInfo info = new VideoInfo();
-        info.setId(text(root, "id"));
-        info.setTitle(text(root, "title"));
-        info.setWebpageUrl(text(root, "webpage_url"));
-        info.setUploader(text(root, "uploader", "channel"));
-        info.setUploaderUrl(text(root, "uploader_url", "channel_url"));
-        info.setChannelId(text(root, "channel_id"));
-        info.setDurationSeconds(longOrNull(root, "duration"));
-        info.setViewCount(longOrNull(root, "view_count"));
-        info.setLikeCount(longOrNull(root, "like_count"));
-        info.setDescription(text(root, "description"));
-        info.setThumbnail(text(root, "thumbnail"));
-        info.setUploadDate(formatUploadDate(text(root, "upload_date")));
-        info.setPlatform(text(root, "extractor_key"));
+        info.setId(pick(node, root, "id"));
+        info.setTitle(pick(node, root, "title"));
+        info.setWebpageUrl(pick(node, root, "webpage_url"));
+        info.setUploader(pick(node, root, "uploader", "channel"));
+        info.setUploaderUrl(pick(node, root, "uploader_url", "channel_url"));
+        info.setChannelId(pick(node, root, "channel_id"));
+        info.setDurationSeconds(longOrNull(node, "duration") != null ? longOrNull(node, "duration") : longOrNull(root, "duration"));
+        info.setViewCount(longOrNull(node, "view_count") != null ? longOrNull(node, "view_count") : longOrNull(root, "view_count"));
+        info.setLikeCount(longOrNull(node, "like_count") != null ? longOrNull(node, "like_count") : longOrNull(root, "like_count"));
+        info.setDescription(pick(node, root, "description"));
+        info.setThumbnail(pick(node, root, "thumbnail"));
+        info.setUploadDate(formatUploadDate(pick(node, root, "upload_date")));
+        info.setPlatform(text(root, "extractor_key") != null ? text(root, "extractor_key") : text(node, "extractor_key"));
+        info.setEntryCount(entryCount);
 
         // 封面代理：有原始地址走通用代理，缺失时 YouTube 退回按 id 构造
         if (StringUtils.hasText(info.getThumbnail())) {
@@ -158,7 +167,7 @@ public class YtDlpService {
         }
 
         List<ThumbnailInfo> thumbs = new ArrayList<>();
-        for (JsonNode t : root.path("thumbnails")) {
+        for (JsonNode t : node.path("thumbnails")) {
             String turl = text(t, "url");
             if (turl == null) {
                 continue;
@@ -173,7 +182,7 @@ public class YtDlpService {
         info.setThumbnails(thumbs);
 
         List<FormatOption> formats = new ArrayList<>();
-        for (JsonNode f : root.path("formats")) {
+        for (JsonNode f : node.path("formats")) {
             String note = text(f, "format_note");
             String ext = text(f, "ext");
             // 跳过缩略图/故事板等非媒体格式
@@ -344,6 +353,12 @@ public class YtDlpService {
             return uploadDate.substring(0, 4) + "-" + uploadDate.substring(4, 6) + "-" + uploadDate.substring(6, 8);
         }
         return uploadDate;
+    }
+
+    /** 优先取 node 字段，为空时回退 fallback 节点（多视频条目缺根级字段的场景） */
+    private String pick(JsonNode node, JsonNode fallback, String... fields) {
+        String v = text(node, fields);
+        return v != null ? v : text(fallback, fields);
     }
 
     private String text(JsonNode node, String... fields) {

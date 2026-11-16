@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 @Data
 public class DownloadJob {
@@ -27,6 +29,9 @@ public class DownloadJob {
 
     private volatile Path filePath;
     private volatile String errorMessage;
+
+    /** 多视频/播放列表：每个完成条目经 after_move 打印入列（下载顺序），多于一个时打包 zip */
+    private final List<Path> completedFiles = new ArrayList<>();
 
     /** 提交者身份（用于完成时配额计费）：登录用户 id 或游客 uid */
     private Long userId;
@@ -84,12 +89,31 @@ public class DownloadJob {
             info.setPercent(percentHint != null ? percentHint : -1.0);
         }
 
-        Path p = filePath;
-        if (p != null) {
-            info.setFileName(p.getFileName().toString());
-            try {
-                info.setFileSize(java.nio.file.Files.size(p));
-            } catch (Exception ignored) {
+        if (completedFiles.size() > 1) {
+            info.setFileNames(completedFiles.stream()
+                    .map(f -> f.getFileName().toString()).toList());
+            Path first = completedFiles.get(0);
+            info.setFileName(first.getFileName().toString());
+            long sum = 0;
+            boolean ok = false;
+            for (Path f : completedFiles) {
+                try {
+                    sum += java.nio.file.Files.size(f);
+                    ok = true;
+                } catch (Exception ignored) {
+                }
+            }
+            if (ok) {
+                info.setFileSize(sum);
+            }
+        } else {
+            Path p = filePath;
+            if (p != null) {
+                info.setFileName(p.getFileName().toString());
+                try {
+                    info.setFileSize(java.nio.file.Files.size(p));
+                } catch (Exception ignored) {
+                }
             }
         }
         return info;

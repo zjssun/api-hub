@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -129,14 +130,23 @@ public class DownloadService {
                 .toList();
     }
 
-    /** 返回任务产物文件路径，仅在 FINISHED 状态下可用 */
-    public Path getJobFile(String jobId) {
+    /** 返回任务产物文件路径，仅在 FINISHED 状态下可用；index 指定多视频任务中的第几个文件 */
+    public Path getJobFile(String jobId, Integer index) {
         DownloadJob job = requireJob(jobId);
         if (job.getStatus() != JobStatus.FINISHED) {
             throw new BusinessException("任务尚未完成 (status=" + job.getStatus() + ")");
         }
-        Path file = resolveJobFile(job);
-        if (file == null) {
+        Path file;
+        if (index != null) {
+            List<Path> files = job.getCompletedFiles();
+            if (index < 0 || index >= files.size()) {
+                throw new BusinessException("文件序号超出范围 (index=" + index + ")");
+            }
+            file = files.get(index);
+        } else {
+            file = resolveJobFile(job);
+        }
+        if (file == null || !Files.exists(file)) {
             throw new BusinessException("产物文件不存在或已被清理");
         }
         return file;
@@ -184,14 +194,20 @@ public class DownloadService {
                 if (job.getFilePath() == null) {
                     job.setFilePath(findNewestFile(dir));
                 }
-                // GIF 提取：X/Twitter 的"GIF"实为静音 mp4，下载后转 .gif
-                if (Boolean.TRUE.equals(request.getGif()) && job.getFilePath() != null) {
+                // 多视频条目多于一个：ffmpeg concat 无损拼接为单个视频交付（前端零改动）；
+                // 失败时 filePath 保留第一个文件。GIF 转码仅适用单文件场景跳过
+                if (job.getCompletedFiles().size() > 1) {
+                    job.setFilePath(job.getCompletedFiles().get(0));
+                    concatArtifacts(job, dir, request.getFileName());
+                } else if (Boolean.TRUE.equals(request.getGif()) && job.getFilePath() != null) {
+                    // GIF 提取：X/Twitter 的"GIF"实为静音 mp4，下载后转 .gif
                     convertToGif(job);
                 }
-                // 完成才计当日用量（按实际文件大小）
+                // 完成才计当日用量（多视频按全部条目总字节）
                 if (job.getFilePath() != null && Files.exists(job.getFilePath())) {
+                    long chargeBytes = artifactBytes(job);
                     moveToCache(job);
-                    usageService.charge(job.getUserId(), job.getVisitorUid(), Files.size(job.getFilePath()));
+                    usageService.charge(job.getUserId(), job.getVisitorUid(), chargeBytes);
                 }
                 job.setStatus(JobStatus.FINISHED);
                 job.setPercentHint(100.0);
@@ -249,6 +265,81 @@ public class DownloadService {
         }
     }
 
+    /**
+     * 多视频条目按下载顺序拼接为单个视频（ffmpeg concat demuxer，-c copy 不转码）。
+     * 成功：merged 写入 filePath 作为 /file 默认交付（兼容只取单文件的旧前端），
+     * 单条文件保留在 completedFiles 供 ?index=i 逐个取回；失败 filePath 回退首个文件。
+     */
+    private void concatArtifacts(DownloadJob job, Path dir, String fileName) {
+        List<Path> files = job.getCompletedFiles().stream().filter(Files::exists).toList();
+        if (files.size() < 2) {
+            return;
+        }
+        String base;
+        if (StringUtils.hasText(fileName)) {
+            base = ILLEGAL_FILENAME.matcher(fileName.trim()).replaceAll("_");
+        } else {
+            String n = files.get(0).getFileName().toString();
+            int dot = n.lastIndexOf('.');
+            base = dot > 0 ? n.substring(0, dot) : n;
+        }
+        String firstName = files.get(0).getFileName().toString();
+        int dot = firstName.lastIndexOf('.');
+        String ext = dot > 0 ? firstName.substring(dot + 1) : "mp4";
+
+        Path listFile = dir.resolve("concat-list.txt");
+        Path merged = dir.resolve(base + "-x" + files.size() + "." + ext);
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (Path f : files) {
+                sb.append("file '").append(f.toAbsolutePath().toString()
+                        .replace("'", "'\\''")).append("'\n");
+            }
+            Files.writeString(listFile, sb.toString());
+
+            List<String> cmd = new ArrayList<>();
+            cmd.add(ffmpegBinary());
+            cmd.add("-y");
+            cmd.add("-f");
+            cmd.add("concat");
+            cmd.add("-safe");
+            cmd.add("0");
+            cmd.add("-i");
+            cmd.add(listFile.toString());
+            cmd.add("-c");
+            cmd.add("copy");
+            cmd.add(merged.toString());
+            processRunner.run(cmd, Duration.ofMinutes(10));
+
+            if (Files.exists(merged) && Files.size(merged) > 0) {
+                job.setFilePath(merged);
+            }
+        } catch (Exception e) {
+            logger.warn("多视频拼接失败 jobId={}，回退为第一个文件: {}", job.getJobId(), e.getMessage());
+        } finally {
+            try {
+                Files.deleteIfExists(listFile);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /** 任务实际产物总字节：多视频为全部条目之和，单文件为 filePath 大小 */
+    private long artifactBytes(DownloadJob job) throws IOException {
+        List<Path> files = job.getCompletedFiles();
+        if (files.size() > 1) {
+            long sum = 0;
+            for (Path f : files) {
+                if (Files.exists(f)) {
+                    sum += Files.size(f);
+                }
+            }
+            return sum;
+        }
+        Path p = job.getFilePath();
+        return p != null && Files.exists(p) ? Files.size(p) : 0;
+    }
+
     /** ffmpeg 可执行文件路径：配置为目录时拼接平台可执行名，留空走 PATH */
     private String ffmpegBinary() {
         String configured = properties.getFfmpegPath();
@@ -284,7 +375,9 @@ public class DownloadService {
         }
 
         if (line.startsWith(FILE_PREFIX)) {
-            job.setFilePath(Path.of(line.substring(FILE_PREFIX.length()).trim()));
+            Path f = Path.of(line.substring(FILE_PREFIX.length()).trim());
+            job.getCompletedFiles().add(f);
+            job.setFilePath(f);
             return;
         }
 
@@ -297,6 +390,12 @@ public class DownloadService {
     private List<String> buildDownloadCommand(DownloadRequest request, String url, String jobId) {
         List<String> cmd = new ArrayList<>(commandBuilder.base());
         Path dir = jobDir(jobId);
+
+        // 覆盖 base 的 --no-playlist：多视频/播放列表全下（封顶 playlist-max-items 条），
+        // 产物多于一个时结束后打包 zip（见 runJob）
+        cmd.add("--yes-playlist");
+        cmd.add("--playlist-end");
+        cmd.add(String.valueOf(Math.max(1, properties.getPlaylistMaxItems())));
 
         // 进度模板：状态|已下载|总大小|估算总大小|速度|ETA
         cmd.add("--newline");
@@ -435,20 +534,53 @@ public class DownloadService {
             logger.warn("下载缓存索引读取失败 key={}: {}", indexKey, e.getMessage());
             return null;
         }
-        String fileName = entry.getString("fileName");
-        Long sizeBytes = entry.getLong("sizeBytes");
-        Path file = StringUtils.hasText(fileName) ? cacheDir(cacheKey).resolve(fileName) : null;
-        if (file == null || sizeBytes == null || sizeBytes <= 0 || !Files.exists(file)) {
-            // 文件被清理（过期/手动删）：索引自愈，回退正常下载
-            redisUtils.delete(indexKey);
-            return null;
+        // 多文件索引（files[]）优先，单文件旧格式（fileName+sizeBytes）兜底；任一文件缺失即整体失效回退重下
+        List<Path> files = new ArrayList<>();
+        long total = 0;
+        Path mergedFile = null;
+        com.alibaba.fastjson.JSONArray arr = entry.getJSONArray("files");
+        if (arr != null && !arr.isEmpty()) {
+            for (int i = 0; i < arr.size(); i++) {
+                String fn = arr.getJSONObject(i).getString("fileName");
+                Path f = StringUtils.hasText(fn) ? cacheDir(cacheKey).resolve(fn) : null;
+                if (f == null || !Files.exists(f)) {
+                    redisUtils.delete(indexKey);
+                    return null;
+                }
+                files.add(f);
+                try {
+                    total += Files.size(f);
+                } catch (IOException e) {
+                    redisUtils.delete(indexKey);
+                    return null;
+                }
+            }
+            String merged = entry.getString("merged");
+            if (StringUtils.hasText(merged)) {
+                mergedFile = cacheDir(cacheKey).resolve(merged);
+                if (!Files.exists(mergedFile)) {
+                    redisUtils.delete(indexKey);
+                    return null;
+                }
+            }
+        } else {
+            String fileName = entry.getString("fileName");
+            Long sizeBytes = entry.getLong("sizeBytes");
+            Path file = StringUtils.hasText(fileName) ? cacheDir(cacheKey).resolve(fileName) : null;
+            if (file == null || sizeBytes == null || sizeBytes <= 0 || !Files.exists(file)) {
+                // 文件被清理（过期/手动删）：索引自愈，回退正常下载
+                redisUtils.delete(indexKey);
+                return null;
+            }
+            files.add(file);
+            total = sizeBytes;
         }
-        if (sizeBytes > remaining) {
-            throw new BusinessException("今日剩余额度不足（该文件需约 " + (sizeBytes / 1048576 + 1) + " MB）");
+        if (total > remaining) {
+            throw new BusinessException("今日剩余额度不足（该文件需约 " + (total / 1048576 + 1) + " MB）");
         }
 
-        // 命中照常计当日配额
-        usageService.charge(userId, visitorUid, sizeBytes);
+        // 命中照常计当日配额（多文件按总字节）
+        usageService.charge(userId, visitorUid, total);
 
         DownloadJob job = new DownloadJob();
         job.setJobId(UUID.randomUUID().toString().replace("-", "").substring(0, 12));
@@ -456,31 +588,65 @@ public class DownloadService {
         job.setVisitorUid(visitorUid);
         job.setStatus(JobStatus.FINISHED);
         job.setPercentHint(100.0);
-        job.setFilePath(file);
-        job.setDownloadedBytes(sizeBytes);
-        job.setTotalBytes(sizeBytes);
+        if (files.size() > 1) {
+            job.getCompletedFiles().addAll(files);
+        }
+        job.setFilePath(mergedFile != null ? mergedFile : files.get(0));
+        job.setDownloadedBytes(total);
+        job.setTotalBytes(total);
         job.setFinishedAt(LocalDateTime.now());
         jobs.put(job.getJobId(), job);
-        logger.info("下载缓存命中 jobId={} file={} sizeBytes={}", job.getJobId(), file, sizeBytes);
+        logger.info("下载缓存命中 jobId={} files={} sizeBytes={}", job.getJobId(), files.size(), total);
         return job.toInfo();
     }
 
-    /** 产物迁入共享缓存目录并写索引；迁移失败保留 jobDir 原文件，不影响本次取件 */
+    /** 全部产物迁入共享缓存目录并写索引（files[]+totalBytes）；迁移失败保留 jobDir 原文件，不影响本次取件 */
     private void moveToCache(DownloadJob job) {
         if (!properties.isCacheEnabled() || !StringUtils.hasText(job.getCacheKey())) {
             return;
         }
         try {
-            Path src = job.getFilePath();
             Path dir = cacheDir(job.getCacheKey());
             Files.createDirectories(dir);
-            Path dest = dir.resolve(src.getFileName().toString());
-            Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING);
-            job.setFilePath(dest);
+
+            // 源集合：默认交付文件(filePath，多视频为合并件) + 全部单条文件(completedFiles)
+            boolean multi = job.getCompletedFiles().size() > 1;
+            List<Path> sources = new ArrayList<>();
+            sources.add(job.getFilePath());
+            for (Path f : job.getCompletedFiles()) {
+                if (!f.equals(job.getFilePath())) {
+                    sources.add(f);
+                }
+            }
+            List<Path> moved = new ArrayList<>();
+            com.alibaba.fastjson.JSONArray filesMeta = new com.alibaba.fastjson.JSONArray();
+            long total = 0;
+            for (Path src : sources) {
+                Path dest = dir.resolve(src.getFileName().toString());
+                Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING);
+                moved.add(dest);
+                if (multi && !src.equals(job.getFilePath())) {
+                    JSONObject fm = new JSONObject();
+                    fm.put("fileName", dest.getFileName().toString());
+                    filesMeta.add(fm);
+                }
+                // 计费口径=单条文件之和；单文件任务即 filePath 自身
+                if (!multi || !src.equals(job.getFilePath())) {
+                    total += Files.size(dest);
+                }
+            }
+            job.setFilePath(moved.get(0));
+            if (multi) {
+                job.getCompletedFiles().clear();
+                job.getCompletedFiles().addAll(moved.subList(1, moved.size()));
+            }
 
             JSONObject entry = new JSONObject();
-            entry.put("fileName", dest.getFileName().toString());
-            entry.put("sizeBytes", Files.size(dest));
+            entry.put("files", filesMeta);
+            entry.put("merged", moved.get(0).getFileName().toString());
+            entry.put("totalBytes", total);
+            entry.put("fileName", moved.get(0).getFileName().toString());
+            entry.put("sizeBytes", total);
             entry.put("createdAtMs", System.currentTimeMillis());
             redisUtils.setex(CACHE_INDEX_PREFIX + job.getCacheKey(), entry.toJSONString(),
                     properties.getRetentionHours() * 3600_000L);

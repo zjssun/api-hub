@@ -30,6 +30,9 @@ public class YoutubeProperties {
     /** 最大并发下载数，超出排队 */
     private int maxConcurrent = 3;
 
+    /** 多视频/播放列表链接单次最多下载条目数（--playlist-end），防整列烧配额 */
+    private int playlistMaxItems = 10;
+
     /** 已下载文件保留小时数，过期自动清理 */
     private int retentionHours = 24;
 

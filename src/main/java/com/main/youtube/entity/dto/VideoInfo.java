@@ -33,6 +33,9 @@ public class VideoInfo {
     /** 原始封面地址（在大陆不可直连，仅备用） */
     private String thumbnail;
 
+    /** 多视频/播放列表总条目数；单视频为 null，下载时按 playlist-max-items 封顶全下打包 */
+    private Integer entryCount;
+
     private List<ThumbnailInfo> thumbnails;
     private List<FormatOption> formats;
 }

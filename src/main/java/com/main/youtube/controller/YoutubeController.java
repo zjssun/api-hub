@@ -129,8 +129,9 @@ public class YoutubeController extends ABaseController {
     /** 取回下载产物，支持 Range（小程序 video 组件拖动进度条需要） */
     @GetMapping("/jobs/{jobId}/file")
     public ResponseEntity<?> file(@PathVariable String jobId,
+                                  @RequestParam(value = "index", required = false) Integer index,
                                   @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader) {
-        Path file = downloadService.getJobFile(jobId);
+        Path file = downloadService.getJobFile(jobId, index);
         Resource resource = new FileSystemResource(file);
         String fileName = file.getFileName().toString();
 
