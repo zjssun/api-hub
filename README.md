@@ -59,6 +59,7 @@ GET samrol-express.shop/hotlist/juejin
 - 多视频/播放列表链接支持（双模交付）：resolve 对 `_type != video`（如 X 推文多视频）不再直接拒绝，取 entries[0] 映射展示、条目缺字段回退根节点，VideoInfo 新增 entryCount 告知总条数；下载侧 `--yes-playlist` 覆盖 `--no-playlist` 并按 `youtube.playlist-max-items`（默认 10，--playlist-end）封顶全下，多条目产物同时保留为独立文件 + ffmpeg concat 无损拼接（-c copy）单视频：`/jobs/{id}/file` 默认返回合并件（已发布小程序兼容零改动），`?index=i` 按序取单条（JobInfo.fileNames[]）；配额按全部条目实际总字节计费；缓存索引升级 files[]+merged 元数据（兼容旧格式），任一文件缺失整体回退重下；新版前端逐个下载保存到相册并显示"共N个视频"提示。
 - 新增选手 FACEIT 主页查询接口 `GET /api/pros/{name}/faceit-url`：按展示名从注册表反查 uuid，拼接 `https://www.faceit.com/users/{uuid}` 返回，供前端点击职业哥标签跳转主页；`ProPlayerRegistry` 增加 name→uuid 反查。
 - 修复 API Key 鉴权范围过宽：拦截器由全部 `/api/**` 收窄为 `/api/youtube/**`，解除对 /api/auth、/api/comments、/api/history、/api/usage、/api/pros 等非 youtube 接口的误拦。
+- 投票接入敏感词过滤：`POST /vote` 复用评论同款 `SensitiveWordBs` 引擎（内置词库 + 自定义 banword.txt 链式合并、白名单豁免、60s 热更新），投票名字规范化后命中敏感词抛 `BusinessException("投票内容不宜发布")`，经全局异常处理器返回 error VO 供前端展示原因。
 
 ### 2026-11-15
 - 下载产物缓存：相同链接+有效参数（画质选择器/容器/音频/GIF/内嵌项归一化后的 sha256）复用已下文件，产物迁入 downloads/_cache/{key}/ 共享目录、Redis 索引对齐保留期 TTL；命中返回即时 FINISHED 任务并仍按实际字节计当日配额，缓存文件过期或被手动清理后自动回退重新下载；定时清理扩展为 _cache 按龄期+总量上限（cache-max-mb，默认 20GB）清扫；youtube.cache-enabled 可整体关闭。
