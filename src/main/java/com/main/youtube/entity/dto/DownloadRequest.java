@@ -41,4 +41,10 @@ public class DownloadRequest {
 
     /** 服务端按当日剩余配额注入的大小上限（字节），客户端不可控 */
     private Long maxFilesizeBytes;
+
+    /** 前端估算的单个文件大小（字节），仅用于播放列表总量预检，不作硬依据 */
+    private Long estimateBytes;
+
+    /** resolve 返回的多视频/播放列表总条目数；单视频不传或为 1 */
+    private Integer entryCount;
 }

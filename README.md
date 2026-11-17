@@ -54,6 +54,10 @@ GET samrol-express.shop/hotlist/juejin
 
 ## 📝 更新日志 | Changelog
 
+### 2026-11-17
+- 评论功能软下架（小程序合规）：`GET /api/comments` 固定返回空列表（存量数据不再下发），`POST /api/comments` 抛 `BusinessException("评论功能已下架")` 供旧版客户端原样提示；comments 表与 CommentService 保留，随时可恢复。
+- 播放列表配额预检：DownloadRequest 新增客户端可选上报的 estimateBytes（选中档位估算单文件大小）与 entryCount；submit 对多条目任务校验"估算总量（estimateBytes × min(entryCount, playlistMaxItems)）≤ 当日剩余配额"，超出即拒并提示改低画质，避免播放列表任务烧穿整日配额；旧客户端不传则跳过校验，完全兼容。
+
 ### 2026-11-16
 - 短信验证码由 PNS（号码认证服务）改回 Dysmsapi（短信服务）：服务端自生成 6 位码经 SendSms 下发（`templateParam {"code":"..."}`），Redis 存 5 分钟本地核验（原 `vc:sms:` 键）；签名/模板/凭据配置不变，发送失败按错误码映射友好提示，网络类异常自动重试一次。
 - 多视频/播放列表链接支持（双模交付）：resolve 对 `_type != video`（如 X 推文多视频）不再直接拒绝，取 entries[0] 映射展示、条目缺字段回退根节点，VideoInfo 新增 entryCount 告知总条数；下载侧 `--yes-playlist` 覆盖 `--no-playlist` 并按 `youtube.playlist-max-items`（默认 10，--playlist-end）封顶全下，多条目产物同时保留为独立文件 + ffmpeg concat 无损拼接（-c copy）单视频：`/jobs/{id}/file` 默认返回合并件（已发布小程序兼容零改动），`?index=i` 按序取单条（JobInfo.fileNames[]）；配额按全部条目实际总字节计费；缓存索引升级 files[]+merged 元数据（兼容旧格式），任一文件缺失整体回退重下；新版前端逐个下载保存到相册并显示"共N个视频"提示。

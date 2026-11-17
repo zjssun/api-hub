@@ -93,6 +93,16 @@ public class DownloadService {
             throw new BusinessException("今日用量已用完");
         }
 
+        // 播放列表/多视频：估算总量超过剩余配额直接拒（--max-filesize 只管单文件，管不了总量）
+        if (request.getEntryCount() != null && request.getEntryCount() > 1
+                && request.getEstimateBytes() != null && request.getEstimateBytes() > 0) {
+            int planned = Math.min(request.getEntryCount(), Math.max(1, properties.getPlaylistMaxItems()));
+            if (request.getEstimateBytes() * planned > remaining) {
+                throw new BusinessException("该链接共 " + planned
+                        + " 条，估算总量超过今日剩余配额，请选择更低画质或明天再试");
+            }
+        }
+
         String url = ytDlpService.normalizeUrl(request.getUrl());
         String cacheKey = computeCacheKey(request, url);
 
