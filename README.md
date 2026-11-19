@@ -54,6 +54,9 @@ GET samrol-express.shop/hotlist/juejin
 
 ## 📝 更新日志 | Changelog
 
+### 2026-11-19
+- 修复下载视频微信无法分享（"不能分享这种格式视频"）：yt-dlp 默认格式排序偏好 hvc1/vp9，mp4 容器内实为 HEVC/VP9+Opus。格式选择器按画质分层——≤1080P 与"最佳画质"档走 avc1+m4a 优先链产出可分享的 h264+aac；>1080P 档维持最优编码（YouTube 4K 无 h264 流，用户自选画质换取不可分享）；全链保留无编码约束兜底，零 avc1 视频降级原编码不影响下载。
+
 ### 2026-11-17
 - 评论功能软下架（小程序合规）：`GET /api/comments` 固定返回空列表（存量数据不再下发），`POST /api/comments` 抛 `BusinessException("评论功能已下架")` 供旧版客户端原样提示；comments 表与 CommentService 保留，随时可恢复。
 - 播放列表配额预检：DownloadRequest 新增客户端可选上报的 estimateBytes（选中档位估算单文件大小）与 entryCount；submit 对多条目任务校验"估算总量（estimateBytes × min(entryCount, playlistMaxItems)）≤ 当日剩余配额"，超出即拒并提示改低画质，避免播放列表任务烧穿整日配额；旧客户端不传则跳过校验，完全兼容。

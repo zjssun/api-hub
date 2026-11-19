@@ -475,7 +475,15 @@ public class DownloadService {
             return request.getFormatSelector();
         }
         Integer quality = request.getQuality();
+        if (quality != null && quality > 0 && quality <= 1080) {
+            // ≤1080P：avc1+m4a 优先产出微信可分享的 h264+aac mp4，逐级兜底；零 avc1 时降级原编码
+            return "bv*[vcodec^=avc1][height<=" + quality + "]+ba[acodec^=mp4a]/"
+                    + "bv*[vcodec^=avc1][height<=" + quality + "]+ba/"
+                    + "b[vcodec^=avc1][height<=" + quality + "]/"
+                    + "bv*[height<=" + quality + "]+ba/b[height<=" + quality + "]/bv*+ba/b";
+        }
         if (quality != null && quality > 0) {
+            // >1080P：真 4K 最优编码（YouTube 高画质仅 vp9/av01/hvc1，不可微信分享为用户自选取舍）
             // 逐层兜底：分离流按画质封顶 → 单文件按画质封顶 → 无封顶任意最优
             // YouTube 部分视频/client 不返回 muxed 或无 audio-only 流时避免整个选择器归零
             return "bv*[height<=" + quality + "]+ba/b[height<=" + quality

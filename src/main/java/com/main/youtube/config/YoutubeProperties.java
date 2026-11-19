@@ -42,8 +42,8 @@ public class YoutubeProperties {
     /** 单个下载任务超时时间（分钟） */
     private int downloadTimeoutMinutes = 60;
 
-    /** 默认视频格式选择器（逐层兜底，避免单一表达式匹配不到任何格式） */
-    private String defaultFormatSelector = "bv*+ba/bv*/b";
+    /** 默认视频格式选择器（"最佳画质"档：avc1+m4a 优先产出可微信分享的 h264 mp4，零 avc1 降级原编码） */
+    private String defaultFormatSelector = "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/bv*[vcodec^=avc1]+ba/b[vcodec^=avc1]/bv*+ba/b";
 
     /** yt-dlp --extractor-args（如 youtube:player_client=... / po_token 注入），留空不传 */
     private String extractorArgs = "";
